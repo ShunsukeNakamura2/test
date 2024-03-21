@@ -1,0 +1,14 @@
+ソート前       
+dat[0]:9,A     
+dat[1]:2,A     
+dat[2]:10,testB
+dat[3]:5,AB    
+dat[4]:10,testA
+dat[5]:5,AA    
+ソート後       
+dat[0]:2,A     
+dat[1]:5,AA    
+dat[2]:5,AB    
+dat[3]:9,A
+dat[4]:10,testA
+dat[5]:10,testB
