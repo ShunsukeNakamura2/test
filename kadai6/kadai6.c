@@ -1,10 +1,10 @@
 #include<stdio.h>
 #include<stddef.h>
 
-/**
- * 〇課題6
- * 構造体「SAMPLE_t」のサイズ、各メンバのサイズの合計、
- * 各メンバの先頭からのオフセットとサイズを表示してください。
+/*
+〇課題6
+構造体「SAMPLE_t」のサイズ、各メンバのサイズの合計、
+各メンバの先頭からのオフセットとサイズを表示してください。
 */
 
 struct SAMPLE_t
@@ -20,9 +20,9 @@ struct SAMPLE_t
 int main(int argc, char *argv[])
 {
     struct SAMPLE_t sample;
-    /**
-     * gccコンパイル時の文字化け対策で、造の前に\を入れている
-     * https://www.novell.com/ja-jp/support/kb/tids/jp/00006500_/00006574.htm
+    /*
+    gccコンパイル時の文字化け対策で、造の前に\を入れている
+    https://www.novell.com/ja-jp/support/kb/tids/jp/00006500_/00006574.htm
     */
     printf("構\造体のサイズ=%d メンバの合計サイズ=%d\n", sizeof(sample), sizeof(sample.m1) + sizeof(sample.m2)
                                                                      + sizeof(sample.m3) + sizeof(sample.m4)
