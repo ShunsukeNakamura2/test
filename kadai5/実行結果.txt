@@ -1,0 +1,2 @@
+char  配列  =1, short  配列  =2, int  配列  =4, long  配列  =4
+charポインタ=1, shortポインタ=2, intポインタ=4, longポインタ=4
