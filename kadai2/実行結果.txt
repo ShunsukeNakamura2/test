@@ -1,0 +1,1 @@
+char=00001 short=00002 int=00004 long=00004 float=00004 double=00008
