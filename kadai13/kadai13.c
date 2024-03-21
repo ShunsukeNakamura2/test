@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-/*
-〇課題13
-構造体DAT_tの配列をソートし表示してください。
-ソート順は、nの値で昇順、nが同一の値の場合は
-sの文字コードで昇順とします。
-ソート処理にはC標準関数qsort()を使ってください。
-*/
 
+/*
+* 〇課題13
+* 構造体DAT_tの配列をソートし表示してください。
+* ソート順は、nの値で昇順、nが同一の値の場合は
+* sの文字コードで昇順とします。
+* ソート処理にはC標準関数qsort()を使ってください。
+*/
 typedef struct DAT_t {
     int n;
     const char *s;
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     int dat_length = sizeof(dat) / sizeof(DAT);
 
     /*
-    gccコンパイル時の文字化け対策でソの後に\を入れている
+    * gccコンパイル時の文字化け対策でソの後に\を入れている
     */
     printf("ソ\ート前\n");
     for(int i = 0; i < dat_length; i++) {
