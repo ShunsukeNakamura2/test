@@ -2,9 +2,9 @@
 #include<stddef.h>
 
 /*
-* Z‰Û‘è6
-* \‘¢‘ÌuSAMPLE_tv‚ÌƒTƒCƒYAŠeƒƒ“ƒo‚ÌƒTƒCƒY‚Ì‡ŒvA
-* Šeƒƒ“ƒo‚Ìæ“ª‚©‚ç‚ÌƒIƒtƒZƒbƒg‚ÆƒTƒCƒY‚ğ•\¦‚µ‚Ä‚­‚¾‚³‚¢B
+* ã€‡èª²é¡Œ6
+* æ§‹é€ ä½“ã€ŒSAMPLE_tã€ã®ã‚µã‚¤ã‚ºã€å„ãƒ¡ãƒ³ãƒã®ã‚µã‚¤ã‚ºã®åˆè¨ˆã€
+* å„ãƒ¡ãƒ³ãƒã®å…ˆé ­ã‹ã‚‰ã®ã‚ªãƒ•ã‚»ãƒƒãƒˆã¨ã‚µã‚¤ã‚ºã‚’è¡¨ç¤ºã—ã¦ãã ã•ã„ã€‚
 */
 
 struct SAMPLE_t
@@ -20,19 +20,16 @@ struct SAMPLE_t
 int main(int argc, char *argv[])
 {
     struct SAMPLE_t sample;
-    /*
-    * gccƒRƒ“ƒpƒCƒ‹‚Ì•¶š‰»‚¯‘Îô‚ÅA‘¢‚Ì‘O‚É\‚ğ“ü‚ê‚Ä‚¢‚é
-    * https://www.novell.com/ja-jp/support/kb/tids/jp/00006500_/00006574.htm
-    */
-    printf("\\‘¢‘Ì‚ÌƒTƒCƒY=%d ƒƒ“ƒo‚Ì‡ŒvƒTƒCƒY=%d\n",
+   
+    printf("æ§‹é€ ä½“ã®ã‚µã‚¤ã‚º=%d ãƒ¡ãƒ³ãƒã®åˆè¨ˆã‚µã‚¤ã‚º=%d\n",
         sizeof(sample), sizeof(sample.m1) + sizeof(sample.m2) + sizeof(sample.m3) +
         sizeof(sample.m4) + sizeof(sample.m5) + sizeof(sample.m6));
 
-    printf("char  m1ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m1), sizeof(sample.m1));
-    printf("short m2ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m2), sizeof(sample.m2));
-    printf("char  m3ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m3), sizeof(sample.m3));
-    printf("long  m4ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m4), sizeof(sample.m4));
-    printf("char  m5ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m5), sizeof(sample.m5));
-    printf("void *m6ƒIƒtƒZƒbƒg=%d ƒTƒCƒY=%d\n", offsetof(struct SAMPLE_t, m6), sizeof(sample.m6));
+    printf("char  m1ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m1), sizeof(sample.m1));
+    printf("short m2ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m2), sizeof(sample.m2));
+    printf("char  m3ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m3), sizeof(sample.m3));
+    printf("long  m4ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m4), sizeof(sample.m4));
+    printf("char  m5ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m5), sizeof(sample.m5));
+    printf("void *m6ã‚ªãƒ•ã‚»ãƒƒãƒˆ=%d ã‚µã‚¤ã‚º=%d\n", offsetof(struct SAMPLE_t, m6), sizeof(sample.m6));
     return 0;
 }
