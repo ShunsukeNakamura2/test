@@ -27,5 +27,6 @@ int main(int argc, char *argv[])
 static int static_counter()
 {
     static int count = 0;
-    return ++count;
+    count++;
+    return count;
 }
