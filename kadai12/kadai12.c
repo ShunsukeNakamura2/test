@@ -1,12 +1,12 @@
 #include<stdio.h>
 
 /*
-* Z‰Û‘è12
-* w’è‚³‚ê‚½—Ìˆæ‚ğ16iƒ_ƒ“ƒv‚µ•\¦‚·‚é
-* ŠÖ”‚ğì¬‚µ‚Ä‚­‚¾‚³‚¢B
+* ã€‡èª²é¡Œ12
+* æŒ‡å®šã•ã‚ŒãŸé ˜åŸŸã‚’16é€²ãƒ€ãƒ³ãƒ—ã—è¡¨ç¤ºã™ã‚‹
+* é–¢æ•°ã‚’ä½œæˆã—ã¦ãã ã•ã„ã€‚
 */
 
-void dump(const void *p, size_t s);
+static void dump(const void *p, size_t s);
 
 int main(int argc, char *argv[])
 {
@@ -15,10 +15,16 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void dump(const void *p, size_t s)
+/**
+ * @brief æŒ‡å®šã•ã‚ŒãŸé ˜åŸŸã‚’16é€²ãƒ€ãƒ³ãƒ—ã—ã¦è¡¨ç¤º
+ * 
+ * @param[in] p ãƒ€ãƒ³ãƒ—å¯¾è±¡
+ * @param[in] s ãƒ€ãƒ³ãƒ—å¯¾è±¡ã®ã‚µã‚¤ã‚º
+*/
+static void dump(const void *p, size_t s)
 {
-    unsigned char *a = (unsigned char *)p;
+    unsigned char *data = (unsigned char *)p;
     for(int i = 0; i < s; i++){
-        printf("%02X ", a[i]);
+        printf("%02X ", data[i]);
     }
 }
