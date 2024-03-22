@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
 static void rev_str(char *str)
 {
     int length = strlen(str);
-    for(int i = 0; i < length / 2; i++) {
+    int rep_count = length / 2;
+    for(int i = 0; i < rep_count; i++) {
         char tmp = str[i];
         str[i] = str[length - 1 - i];
         str[length - 1 - i] = tmp;
