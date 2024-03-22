@@ -21,11 +21,10 @@ int main(int argc, char *argv[])
     DAT dat[] = {
         {9, "A"},
         {2, "A"},
-        {10, "testB"},
         {5, "AB"},
-        {10, "testA"},
-        {5, "AA"}
-    };
+        {5, "AA"},
+    }; 
+
     int dat_length = sizeof(dat) / sizeof(DAT);
 
     printf("ソート前\n");
