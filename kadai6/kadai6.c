@@ -24,9 +24,10 @@ int main(int argc, char *argv[])
     * gccコンパイル時の文字化け対策で、造の前に\を入れている
     * https://www.novell.com/ja-jp/support/kb/tids/jp/00006500_/00006574.htm
     */
-    printf("構\造体のサイズ=%d メンバの合計サイズ=%d\n", sizeof(sample), sizeof(sample.m1) + sizeof(sample.m2) +
-                                                                     sizeof(sample.m3) + sizeof(sample.m4) +
-                                                                     sizeof(sample.m5) + sizeof(sample.m6));
+    printf("構\造体のサイズ=%d メンバの合計サイズ=%d\n",
+        sizeof(sample), sizeof(sample.m1) + sizeof(sample.m2) + sizeof(sample.m3) +
+        sizeof(sample.m4) + sizeof(sample.m5) + sizeof(sample.m6));
+
     printf("char  m1オフセット=%d サイズ=%d\n", offsetof(struct SAMPLE_t, m1), sizeof(sample.m1));
     printf("short m2オフセット=%d サイズ=%d\n", offsetof(struct SAMPLE_t, m2), sizeof(sample.m2));
     printf("char  m3オフセット=%d サイズ=%d\n", offsetof(struct SAMPLE_t, m3), sizeof(sample.m3));
