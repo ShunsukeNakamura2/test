@@ -1,11 +1,11 @@
 #include<stdio.h>
 
 /*
-* Z‰Û‘è5
-* char,short,int,long‚Ì”z—ñ‚Æƒ|ƒCƒ“ƒ^‚ğ’è‹`‚µA
-* ‚»‚ê‚¼‚êA”z—ñ‚Ì“Yš‚ğ1‚Âi‚ß‚½ê‡‚Æ
-* ƒ|ƒCƒ“ƒ^‚ğƒCƒ“ƒNƒŠƒƒ“ƒg‚µ‚½ê‡‚ÉA
-* ƒAƒhƒŒƒX‚ª‰½ƒoƒCƒgi‚Ş‚©•\¦‚µ‚Ä‚­‚¾‚³‚¢B
+* ã€‡èª²é¡Œ5
+* char,short,int,longã®é…åˆ—ã¨ãƒã‚¤ãƒ³ã‚¿ã‚’å®šç¾©ã—ã€
+* ãã‚Œãã‚Œã€é…åˆ—ã®æ·»å­—ã‚’1ã¤é€²ã‚ãŸå ´åˆã¨
+* ãƒã‚¤ãƒ³ã‚¿ã‚’ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã—ãŸå ´åˆã«ã€
+* ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒä½•ãƒã‚¤ãƒˆé€²ã‚€ã‹è¡¨ç¤ºã—ã¦ãã ã•ã„ã€‚
 */
 int main(int argc, char *argv[])
 {
@@ -18,15 +18,15 @@ int main(int argc, char *argv[])
     int *int_pointer = int_array;
     long *long_pointer = long_array;
 
-    printf("char  ”z—ñ  =%d, short  ”z—ñ  =%d, int  ”z—ñ  =%d, long  ”z—ñ  =%d\n",
-                                    (int)&char_array[1] - (int)&char_array[0],
-                                    (int)&short_array[1] - (int)&short_array[0],
-                                    (int)&int_array[1] - (int)&int_array[0],
-                                    (int)&long_array[1] - (int)&long_array[0]);
-    printf("charƒ|ƒCƒ“ƒ^=%d, shortƒ|ƒCƒ“ƒ^=%d, intƒ|ƒCƒ“ƒ^=%d, longƒ|ƒCƒ“ƒ^=%d\n",
-                                    (int)(char_pointer + 1) - (int)char_pointer,
-                                    (int)(short_pointer + 1) - (int)short_pointer,
-                                    (int)(int_pointer + 1) - (int)int_pointer,
-                                    (int)(long_pointer + 1) - (int)long_pointer);
+    printf("char é…åˆ—=%d short é…åˆ—=%d int é…åˆ—=%d long é…åˆ—=%d\n",
+                            (long long)&char_array[1] - (long long)&char_array[0],
+                            (long long)&short_array[1] - (long long)&short_array[0],
+                            (long long)&int_array[1] - (long long)&int_array[0],
+                            (long long)&long_array[1] - (long long)&long_array[0]);
+    printf("charãƒã‚¤ãƒ³ã‚¿=%d shortãƒã‚¤ãƒ³ã‚¿=%d intãƒã‚¤ãƒ³ã‚¿=%d longãƒã‚¤ãƒ³ã‚¿=%d\n",
+                            (long long)(char_pointer + 1) - (long long)char_pointer,
+                            (long long)(short_pointer + 1) - (long long)short_pointer,
+                            (long long)(int_pointer + 1) - (long long)int_pointer,
+                            (long long)(long_pointer + 1) - (long long)long_pointer);
     return 0;
 }
