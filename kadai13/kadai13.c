@@ -44,7 +44,19 @@ int main(int argc, char *argv[])
 }
 
 /**
- * @brief 構造体DAT
+ * @brief 構造体DAT_t比較関数
+ * 
+ * @note 以下の条件で大小を比較する
+ *       1.メンバn(int) が大きい方が大
+ *       2.メンバnが等しい時、メンバs(char*)の文字コードで比較し大きい方が大
+ *       3.メンバn, s が両方等しい時、両引数は等しい
+ * 
+ * @param[in] n1 比較対象1のDAT_t構造体
+ * @param[in] n2 比較対象2のDAT_t構造体
+ * 
+ * @retval 1  n1が大
+ * @retval -1 n2が大
+ * @retval 0  n1とn2が等しい
 */
 static int compare_dat(const void *n1, const void *n2)
 {
