@@ -2,27 +2,32 @@
 #include<string.h>
 
 /*
-* Z‰Û‘è11
-* •¶š—ñ‚ğ“n‚·‚Æ‹t‡‚É‚µ‚Ä•Ô‚·ŠÖ”‚ğ
-* ì¬‚µ‚Ä‚­‚¾‚³‚¢B
-* (Š¿š“™‚Ì•¡”ƒoƒCƒg•¶š‚ğl—¶‚·‚é
-* •K—v‚Í‚ ‚è‚Ü‚¹‚ñ)
+* ã€‡èª²é¡Œ11
+* æ–‡å­—åˆ—ã‚’æ¸¡ã™ã¨é€†é †ã«ã—ã¦è¿”ã™é–¢æ•°ã‚’
+* ä½œæˆã—ã¦ãã ã•ã„ã€‚
+* (æ¼¢å­—ç­‰ã®è¤‡æ•°ãƒã‚¤ãƒˆæ–‡å­—ã‚’è€ƒæ…®ã™ã‚‹
+* å¿…è¦ã¯ã‚ã‚Šã¾ã›ã‚“)
 */
 
-void rev_str(char *str);
+static void rev_str(char *str);
 
 int main(int argc, char *argv[])
 {
     char str[] = "Shunsuke Nakamura test";
 
-    printf("‡:%s\n", str);
+    printf("é †:%s\n", str);
     rev_str(str);
-    printf("‹t:%s\n", str);
+    printf("é€†:%s\n", str);
 
     return 0;
 }
 
-void rev_str(char *str)
+/**
+ * @brief å¼•æ•°ã®æ–‡å­—åˆ—strã‚’é€†é †ã«ã—ã¦è¿”ã™
+ * 
+ * @param[in/out] str é€†é †ã«ã™ã‚‹æ–‡å­—åˆ—
+*/
+static void rev_str(char *str)
 {
     int length = strlen(str);
     for(int i = 0; i < length / 2; i++) {
