@@ -18,8 +18,13 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief 呼び出されるたびに1インクリメントされた値を返す
+ * 
+ * @return 呼び出された回数
+*/
 int static_counter()
 {
     static int count = 0;
-    return count++;
+    return ++count;
 }
