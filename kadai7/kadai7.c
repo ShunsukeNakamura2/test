@@ -22,6 +22,11 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief 指定回数文再帰呼び出しを行う
+ * 
+ * @param[in] n 再帰呼び出しを行う回数
+*/
 void reent(int n)
 {
     printf("n=%d アドレス=%#x\n", n, &n);
