@@ -1,0 +1,6 @@
+$ ./a input.txt
+test
+hello
+Shunsuke Nakamura
+
+abc
