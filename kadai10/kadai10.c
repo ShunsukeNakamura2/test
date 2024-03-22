@@ -1,26 +1,32 @@
 #include<stdio.h>
 
 /*
-* Z‰Û‘è10
-* intŒ^‚Ì2‚Â‚Ì•Ï”‚Ì’l‚ğ“ü‚ê‘Ö‚¦‚éŠÖ”‚ğ
-* ì¬‚µ‚Ä‚­‚¾‚³‚¢B
+* ã€‡èª²é¡Œ10
+* intå‹ã®2ã¤ã®å¤‰æ•°ã®å€¤ã‚’å…¥ã‚Œæ›¿ãˆã‚‹
+* é–¢æ•°ã‚’ä½œæˆã—ã¦ãã ã•ã„ã€‚ 
 */
 
-void swap_int(int *a, int *b);
+static void swap_int(int *a, int *b);
 
 int main(int argc, char *argv[])
 {
     int a = 1;
     int b = 2;
 
-    printf("“ü‚ê‘Ö‚¦‘O\na=%d b=%d\n", a, b);
+    printf("å…¥ã‚Œæ›¿ãˆå‰\na=%d b=%d\n", a, b);
     swap_int(&a, &b);
-    printf("“ü‚ê‘Ö‚¦Œã\na=%d b=%d\n", a, b);
+    printf("å…¥ã‚Œæ›¿ãˆå¾Œ\na=%d b=%d\n", a, b);
 
     return 0;
 }
 
-void swap_int(int *a, int *b)
+/**
+ * @brief å¼•æ•°a,bã®ä¸­èº«ã‚’å…¥ã‚Œæ›¿ãˆã‚‹
+ * 
+ * @param[in/out] a å…¥ã‚Œæ›¿ãˆå¯¾è±¡ãã®1
+ *                b å…¥ã‚Œæ›¿ãˆå¯¾è±¡ãã®2
+*/
+static void swap_int(int *a, int *b)
 {
     int tmp = *a;
     *a = *b;
