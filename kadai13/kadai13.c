@@ -3,18 +3,18 @@
 #include <stdlib.h>
 
 /*
-* Z‰Û‘è13
-* \‘¢‘ÌDAT_t‚Ì”z—ñ‚ğƒ\[ƒg‚µ•\¦‚µ‚Ä‚­‚¾‚³‚¢B
-* ƒ\[ƒg‡‚ÍAn‚Ì’l‚Å¸‡An‚ª“¯ˆê‚Ì’l‚Ìê‡‚Í
-* s‚Ì•¶šƒR[ƒh‚Å¸‡‚Æ‚µ‚Ü‚·B
-* ƒ\[ƒgˆ—‚É‚ÍC•W€ŠÖ”qsort()‚ğg‚Á‚Ä‚­‚¾‚³‚¢B
+* ã€‡èª²é¡Œ13
+* æ§‹é€ ä½“DAT_tã®é…åˆ—ã‚’ã‚½ãƒ¼ãƒˆã—è¡¨ç¤ºã—ã¦ãã ã•ã„ã€‚
+* ã‚½ãƒ¼ãƒˆé †ã¯ã€nã®å€¤ã§æ˜‡é †ã€nãŒåŒä¸€ã®å€¤ã®å ´åˆã¯
+* sã®æ–‡å­—ã‚³ãƒ¼ãƒ‰ã§æ˜‡é †ã¨ã—ã¾ã™ã€‚
+* ã‚½ãƒ¼ãƒˆå‡¦ç†ã«ã¯Cæ¨™æº–é–¢æ•°qsort()ã‚’ä½¿ã£ã¦ãã ã•ã„ã€‚
 */
 typedef struct DAT_t {
     int n;
     const char *s;
 }DAT;
 
-int compare_dat(const void *dat1, const void *dat2);
+static int compare_dat(const void *dat1, const void *dat2);
 
 int main(int argc, char *argv[])
 {
@@ -28,17 +28,14 @@ int main(int argc, char *argv[])
     };
     int dat_length = sizeof(dat) / sizeof(DAT);
 
-    /*
-    * gccƒRƒ“ƒpƒCƒ‹‚Ì•¶š‰»‚¯‘Îô‚Åƒ\‚ÌŒã‚É\‚ğ“ü‚ê‚Ä‚¢‚é
-    */
-    printf("ƒ\\[ƒg‘O\n");
+    printf("ã‚½ãƒ¼ãƒˆå‰\n");
     for(int i = 0; i < dat_length; i++) {
         printf("dat[%d]:%d,%s\n", i, dat[i].n, dat[i].s);
     }
 
     qsort(dat, dat_length, sizeof(DAT), compare_dat);
 
-    printf("ƒ\\[ƒgŒã\n");
+    printf("ã‚½ãƒ¼ãƒˆå¾Œ\n");
     for(int i = 0; i < dat_length; i++) {
         printf("dat[%d]:%d,%s\n", i, dat[i].n, dat[i].s);
     }
@@ -46,7 +43,10 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-int compare_dat(const void *n1, const void *n2)
+/**
+ * @brief æ§‹é€ ä½“DAT
+*/
+static int compare_dat(const void *n1, const void *n2)
 {
     const DAT *dat1 = (DAT*)n1;
     const DAT *dat2 = (DAT*)n2;
