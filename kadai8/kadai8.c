@@ -8,12 +8,13 @@
 * (intの最大値を超えた場合の動作を考慮する必要はありません)
 */
 
-int static_counter();
+static int static_counter();
 
 int main(int argc, char *argv[])
 {
     for(int i = 0; i < 10; i++) {
-        printf("%d\n", static_counter());
+        int count = static_counter();
+        printf("%d\n", count);
     }
     return 0;
 }
@@ -23,7 +24,7 @@ int main(int argc, char *argv[])
  * 
  * @return 呼び出された回数
 */
-int static_counter()
+static int static_counter()
 {
     static int count = 0;
     return ++count;
