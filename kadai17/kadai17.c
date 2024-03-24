@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     int size;
     char *size_char;
     char unit;
-    char *memory;
+    void *memory;
     
     param_length = strlen(argv[1]);
     unit = argv[1][param_length - 1];
