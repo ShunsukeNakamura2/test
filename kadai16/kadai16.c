@@ -7,7 +7,7 @@
 */
 
 /* 最下位ビットが1なら「1」, 0なら「0」を返す */
-#define BITON(i) ((i) & 0b1)
+#define BITON(i) ((i) & 1)
 
 int main(int argc, char *argv[])
 {
