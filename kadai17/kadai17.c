@@ -15,20 +15,20 @@ int main(int argc, char *argv[])
     int param_length;
     int size;
     char *size_char;
-    char unit;
+    char prefix;
     void *memory;
     
     param_length = strlen(argv[1]);
-    unit = argv[1][param_length - 1];
+    prefix = argv[1][param_length - 1];
 
     size_char = malloc(param_length);
     strncpy(size_char, argv[1], param_length - 1);
     size = atoi(size_char);
     free(size_char);
 
-    if(unit == 'M') {
+    if(prefix == 'M') {
         size *= 1000000;
-    } else if(unit == 'k') {
+    } else if(prefix == 'k') {
         size *= 1000;
     }
 
