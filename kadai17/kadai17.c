@@ -10,8 +10,8 @@
 * 範囲外の値かチェックする必要はありません)
 */
 
-#define MEGA 1048576;
-#define KILO 1024;
+#define MEGA 1048576
+#define KILO 1024
 
 int main(int argc, char *argv[])
 {
