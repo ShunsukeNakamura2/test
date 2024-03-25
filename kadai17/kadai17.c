@@ -10,6 +10,9 @@
 * 範囲外の値かチェックする必要はありません)
 */
 
+#define MEGA 1048576;
+#define KILO 1024;
+
 int main(int argc, char *argv[])
 {
     int param_length;
@@ -27,9 +30,9 @@ int main(int argc, char *argv[])
     free(size_char);
 
     if(prefix == 'M') {
-        size *= 1000000;
-    } else if(prefix == 'k') {
-        size *= 1000;
+        size *= MEGA;
+    } else if(prefix == 'K') {
+        size *= KILO;
     }
 
     memory = malloc(size);
