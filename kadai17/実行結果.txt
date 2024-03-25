@@ -1,0 +1,17 @@
+〇L57 時点での変数sizeをダンプ
+・引数に5を指定 -> size:5
+・引数に10Kを指定 -> size:10240
+・引数に1Mを指定 -> size:1048576
+
+
+$ ./kadai17
+usage: kadai17 size[M|K]
+options: size[M | K]  サイズ(M = メガ, K = キロ)
+
+$ ./kadai17 1a0K
+usage: kadai17 size[M|K]
+options: size[M | K]  サイズ(M = メガ, K = キロ)
+
+$ ./kadai17 10KM
+usage: kadai17 size[M|K]
+options: size[M | K]  サイズ(M = メガ, K = キロ)
