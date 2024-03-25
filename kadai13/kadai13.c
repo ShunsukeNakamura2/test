@@ -53,23 +53,17 @@ int main(int argc, char *argv[])
  * @param[in] n1 比較対象1のDAT_t構造体
  * @param[in] n2 比較対象2のDAT_t構造体
  * 
- * @retval 1  n1が大
- * @retval -1 n2が大
- * @retval 0  n1とn2が等しい
+ * @retval < 0  n1が大
+ * @retval > 0  n2が大
+ * @retval 0    n1とn2が等しい
 */
 static int compare_dat(const void *n1, const void *n2)
 {
     const DAT *dat1 = (DAT*)n1;
     const DAT *dat2 = (DAT*)n2;
 
-    if(dat1->n > dat2->n) {
-        return 1;
-    } else if(dat1->n < dat2->n) {
-        return -1;
-    } else if(strcmp(dat1->s, dat2->s) > 0) {
-        return 1;
-    } else if(strcmp(dat1->s, dat2->s) < 0) {
-        return -1;
+    if(dat1->n != dat2->n) {
+        return dat1->n - dat2->n;
     }
-    return 0;
+    return strcmp(dat1->s, dat2->s);
 }
