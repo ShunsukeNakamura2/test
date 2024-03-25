@@ -53,8 +53,8 @@ int main(int argc, char *argv[])
  * @param[in] n1 比較対象1のDAT_t構造体
  * @param[in] n2 比較対象2のDAT_t構造体
  * 
- * @retval < 0  n1が大
- * @retval > 0  n2が大
+ * @retval > 0  n1が大
+ * @retval < 0  n2が大
  * @retval 0    n1とn2が等しい
 */
 static int compare_dat(const void *n1, const void *n2)
