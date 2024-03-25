@@ -1,9 +1,18 @@
-〇L57 時点での変数sizeをダンプ
-・引数に5を指定 -> size:5
-・引数に10Kを指定 -> size:10240
-・引数に1Mを指定 -> size:1048576
+〇コンパイルオプションによる、未初期化変数にアクセスしようとしたときの警告
+・L20 int size の初期化を外してコンパイルを行う
+$ make
+gcc -O -Wuninitialized    kadai17.c   -o kadai17
+kadai17.c: In function 'main':
+kadai17.c:34:14: warning: 'size' may be used uninitialized [-Wmaybe-uninitialized]
+   34 |         size *= 10;
+      |         ~~~~~^~~~~
+kadai17.c:20:9: note: 'size' was declared here
+   20 |     int size;
+      |         ^~~~
+    
+・初期化をしていないという警告がでた
 
-
+〇実行結果
 $ ./kadai17
 usage: kadai17 size[M|K]
 options: size[M | K]  サイズ(M = メガ, K = キロ)
@@ -15,3 +24,8 @@ options: size[M | K]  サイズ(M = メガ, K = キロ)
 $ ./kadai17 10KM
 usage: kadai17 size[M|K]
 options: size[M | K]  サイズ(M = メガ, K = キロ)
+
+〇L56 時点での変数sizeをダンプ
+・引数に5を指定 -> size:5
+・引数に10Kを指定 -> size:10240
+・引数に1Mを指定 -> size:1048576

@@ -23,22 +23,24 @@ int main(int argc, char* argv[])
     int rep_num;
 
     if (argc < 2) {
-        printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)");
+        printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)\n");
         return 0;
     }
 
     param_length = strlen(argv[1]);
+    /* 末尾を除く文字を処理 */
     rep_num = param_length - 1;
     for(int i = 0; i < rep_num; i++) {
         size *= 10;
         char buff = argv[1][i];
         if (!isdigit(buff)) {
-            printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)");
+            printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)\n");
             return 0;
         }
         size += buff - '0';
     }
 
+    /* 末尾の文字を処理 */
     last_char = argv[1][param_length - 1];
     if(isdigit(last_char)) {
         size = size * 10 + (last_char - '0');
@@ -47,11 +49,14 @@ int main(int argc, char* argv[])
     } else if (last_char == 'K') {
         size *= KILO;
     } else {
-        printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)");
+        printf("usage: kadai17 size[M|K]\noptions: size[M | K]  サイズ(M = メガ, K = キロ)\n");
         return 0;
     }
 
     memory = malloc(size);
+    if(memory == NULL) {
+        printf("Failed to allocate memory\n");
+    }
     free(memory);
 
     return 0;
