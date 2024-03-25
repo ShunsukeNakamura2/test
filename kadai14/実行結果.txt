@@ -1,4 +1,11 @@
-$ ./a input.txt
+$ ./kadai14 
+usage:kadai14 filename
+
+$ ./kadai14 input.tx
+file open error
+error code:2
+
+$ ./kadai14 input.txt
 test
 hello
 Shunsuke Nakamura

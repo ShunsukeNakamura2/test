@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-/**
+/*
  * 〇課題14
  * コマンドラインで指定されたテキストファイルの
  * 内容を表示するプログラムを作成してください。
@@ -8,22 +8,35 @@
  * のことを考慮する必要はありません)
 */
 
-#define MAX_LEN 100 /* テキストファイルの1行の最大文字数 */
-
 int main(int argc, char *argv[])
 {
     FILE *fp;
-    int error;
-    char str[MAX_LEN];
+    int fopen_rc;
+    int fclose_rc;
+    int buff;
 
-    if((error = fopen_s(&fp, argv[1], "r")) == 0) {
-        while(fgets(str, MAX_LEN, fp) != NULL) {
-            printf("%s", str);
-        }
-        fclose(fp);
-    } else {
-        printf("file open error\nerror code:%d", error);
+    if(argc < 2) {
+        printf("usage:kadai14 filename");
+        return 0;
     }
 
+    fopen_rc = fopen_s(&fp, argv[1], "r");
+    if(fopen_rc != 0) {
+        printf("file open error\nerror code:%d\n", fopen_rc);
+        return 0;
+    }
+    
+    while(1) {
+        buff = fgetc(fp);
+        if(buff == EOF) {
+            break;
+        }
+        printf("%c", buff);
+    }
+    
+    fclose_rc = fclose(fp);
+    if(fclose_rc != 0) {
+        printf("\nfile close error\nerror code:%d\n", fclose_rc);
+    }
     return 0;
 }
