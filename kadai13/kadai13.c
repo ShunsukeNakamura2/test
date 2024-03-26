@@ -62,8 +62,10 @@ static int compare_dat(const void *n1, const void *n2)
     const DAT *dat1 = (DAT*)n1;
     const DAT *dat2 = (DAT*)n2;
 
-    if(dat1->n != dat2->n) {
-        return dat1->n - dat2->n;
+    if(dat1->n > dat2->n) {
+        return 1;
+    } else if(dat1->n < dat2->n) {
+        return -1;
     }
     return strcmp(dat1->s, dat2->s);
 }
