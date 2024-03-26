@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
 
 /*
  * 〇課題14
@@ -8,35 +11,45 @@
  * のことを考慮する必要はありません)
 */
 
+#define BUFF_SIZE 256
+
 int main(int argc, char *argv[])
 {
-    FILE *fp;
-    int fopen_rc;
-    int fclose_rc;
-    int buff;
+    int file = 0;
+    int rc;
+    char buff[BUFF_SIZE];
+    ssize_t size;
 
     if(argc < 2) {
         printf("usage:kadai14 filename");
         return 0;
     }
 
-    fopen_rc = fopen_s(&fp, argv[1], "r");
-    if(fopen_rc != 0) {
-        printf("file open error\nerror code:%d\n", fopen_rc);
+    file = open(argv[1], O_RDONLY);
+    if(file == -1) {
+        char *error_message = strerror(errno);
+        printf("file open error\nerror:%s (code:%d)\n", error_message, errno);
         return 0;
     }
     
     while(1) {
-        buff = fgetc(fp);
-        if(buff == EOF) {
+        size = read(file, buff, sizeof(buff) - 1);
+        if(size == -1) {
+            char *error_message = strerror(errno);
+            printf("\nfile read error\nerror:%s (code:%d)\n", error_message, errno);
             break;
         }
-        printf("%c", buff);
+        buff[size] = '\0';
+        printf("%s", buff);
+        if(size == 0) {
+            break;
+        }
     }
     
-    fclose_rc = fclose(fp);
-    if(fclose_rc != 0) {
-        printf("\nfile close error\nerror code:%d\n", fclose_rc);
+    rc = close(file);
+    if(rc == -1) {
+        char *error_message = strerror(errno);
+        printf("\nfile close error\nerror:%s (code:%d)\n", error_message, errno);
     }
     return 0;
 }
