@@ -5,3 +5,13 @@ $ ls -l out
 $ ./a out 1M
 $ ls -l out
 -rw-r--r-- 1 H1018290 1049089 1048576  3月 25 11:43 out
+
+$ ./kadai19 out 1MK
+usage: kadai19 filename size[M|K]
+options: filename  ファイル名size[M|K]
+             サイズ(M=メガ,K=キロ)
+
+(ファイルoutを別のプログラムで開いたまま実行)
+$ ./kadai19.exe out 1
+file open error
+error:Permission denied (code:13)
