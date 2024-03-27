@@ -12,44 +12,52 @@
 */
 
 #define BUFF_SIZE 256
+#define RETURN_USAGE 1
+#define RETURN_FAIL_OPEN 2
+#define RETURN_FAIL_CLOSE 3
+#define RETURN_FAIL_READ 4
+#define RETURN_FAIL_READ_CLOSE 5
 
 int main(int argc, char *argv[])
 {
-    int file = 0;
+    int fd = 0;
     int rc;
     char buff[BUFF_SIZE];
     ssize_t size;
+    int main_rc = 0;
 
     if(argc < 2) {
         printf("usage:kadai14 filename");
-        return 0;
+        return RETURN_USAGE;
     }
 
-    file = open(argv[1], O_RDONLY);
-    if(file == -1) {
-        char *error_message = strerror(errno);
-        printf("file open error\nerror:%s (code:%d)\n", error_message, errno);
-        return 0;
+    fd = open(argv[1], O_RDONLY);
+    if(fd == -1) {
+        printf("file open error\nerror:%s (code:%d)\n", strerror(errno), errno);
+        return RETURN_FAIL_OPEN;
     }
     
     while(1) {
-        size = read(file, buff, sizeof(buff) - 1);
+        size = read(fd, buff, sizeof(buff) - 1);
         if(size == -1) {
-            char *error_message = strerror(errno);
-            printf("\nfile read error\nerror:%s (code:%d)\n", error_message, errno);
+            printf("\nfile read error\nerror:%s (code:%d)\n", strerror(errno), errno);
+            main_rc = RETURN_FAIL_READ;
+            break;
+        } else if(size == 0) {
             break;
         }
         buff[size] = '\0';
         printf("%s", buff);
-        if(size == 0) {
-            break;
-        }
     }
     
-    rc = close(file);
+    rc = close(fd);
     if(rc == -1) {
-        char *error_message = strerror(errno);
-        printf("\nfile close error\nerror:%s (code:%d)\n", error_message, errno);
+        printf("\nfile close error\nerror:%s (code:%d)\n", strerror(errno), errno);
+        if(main_rc == RETURN_FAIL_READ) {
+            main_rc = RETURN_FAIL_READ_CLOSE;
+        } else {
+            main_rc = RETURN_FAIL_CLOSE;
+        }
     }
-    return 0;
+    return main_rc;
 }
