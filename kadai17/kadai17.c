@@ -25,13 +25,14 @@ int main(int argc, char* argv[])
     char last_char;
     void *memory;
     int rep_num;
-    char *request_size_str = argv[1];
+    char *request_size_str;
 
     if (argc < 2) {
         printf(MSG_USAGE);
         return RETURN_USAGE;
     }
 
+    request_size_str = argv[1];
     param_length = strlen(request_size_str);
     /* 末尾を除く文字を処理 */
     rep_num = param_length - 1;
