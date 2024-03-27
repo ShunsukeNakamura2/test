@@ -1,0 +1,15 @@
+$ ./kadai14 
+usage:kadai14 filename
+
+$ ./kadai14 input.tx
+file open error
+error:No such file or directory (code:2)
+$ echo $?
+2
+
+$ ./kadai14 input.txt
+test
+hello
+Shunsuke Nakamura
+
+abc
