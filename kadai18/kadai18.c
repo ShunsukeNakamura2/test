@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
 
 /*
 * 〇課題18
@@ -8,33 +10,44 @@
 
 #define LINE_NUM 16                     /* 1行あたりLINE_NUMバイトずつ表示 */
 #define OUTPUT_NUM (LINE_NUM * 3 + 1)   /* 1行あたりのデータ部の出力文字数 */
+#define MSG_USAGE "usage: kadai18 filename\noptions: filename ファイル名\n"
+#define MSG_FILE_ERROR "\nfile %s error\nerror:%s (code:%d)\n"
+#define RTURN_USAGE 1
+#define RETURN_FAIL_OPEN 2
+#define RETURN_FAIL_CLOSE 3
+#define RETURN_FAIL_READ 4
+#define RETURN_FAIL_READ_CLOSE 5
 
 int main(int argc, char *argv[])
 {
-    FILE *fp;
-    int fopen_rc;
-    int fclose_rc;
+    int fd;
+    int rc;
+    int main_rc = 0;
     int line_count = 0;
     int read_size;
     unsigned char line[LINE_NUM];
 
     if(argc < 2) {
-        printf("usage: kadai18 filename\noptions: filename ファイル名\n");
-        return 0;
+        printf(MSG_USAGE);
+        return RTURN_USAGE;
     }
-    fopen_rc = fopen_s(&fp, argv[1], "rb");    
-    if(fopen_rc != 0) {
-        printf("file open error\nerror code:%d\n", fopen_rc);
-        return 0;
+    
+    fd = open(argv[1], O_RDONLY | O_BINARY);
+    if(fd == -1) {
+        printf(MSG_FILE_ERROR, "open", strerror(errno), errno);
+        return RETURN_FAIL_OPEN;
     }
     
     printf("ADDRESS  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
     while(1) {
-        read_size = fread(line, 1, LINE_NUM, fp);
-        if(read_size == 0) {
+        read_size = read(fd, line, sizeof(line));
+        if(read_size == -1) {
+            printf(MSG_FILE_ERROR, "read", strerror(errno), errno);
+            main_rc = RETURN_FAIL_READ;
+            break;
+        } else if(read_size == 0) {
             break;
         }
-        
         unsigned char output[OUTPUT_NUM] = {0};
         for(int i = 0; i < read_size; i++) {
             sprintf_s(&output[i * 3], 4, " %02X", line[i]);
@@ -48,9 +61,14 @@ int main(int argc, char *argv[])
         line_count++;
     }
     
-    fclose_rc = fclose(fp);
-    if(fclose_rc != 0) {
-        printf("\nfile close error\nerror code:%d\n", fclose_rc);
+    rc = close(fd);
+    if(rc == -1) {
+        printf(MSG_FILE_ERROR, "close", strerror(errno), errno);
+        if(main_rc == RETURN_FAIL_READ) {
+            main_rc = RETURN_FAIL_READ_CLOSE;
+        } else {
+            main_rc = RETURN_FAIL_CLOSE;
+        }
     }
-    return 0;
+    return main_rc;
 }
