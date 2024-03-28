@@ -12,6 +12,7 @@
 #define OUTPUT_NUM (LINE_NUM * 3 + 1)   /* 1行あたりのデータ部の出力文字数 */
 #define MSG_USAGE "usage: kadai18 filename\noptions: filename ファイル名\n"
 #define MSG_FILE_ERROR "\nfile %s error\nerror:%s (code:%d)\n"
+#define RETURN_NOMAL_END 0
 #define RTURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
@@ -22,7 +23,7 @@ int main(int argc, char *argv[])
 {
     int fd;
     int rc;
-    int main_rc = 0;
+    int main_rc = RETURN_NOMAL_END;
     int line_count = 0;
     int read_size;
     unsigned char line[LINE_NUM];
