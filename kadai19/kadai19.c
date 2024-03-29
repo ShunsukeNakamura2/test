@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
         return RETURN_USAGE;
     }
 
-    fd = open(request_file_name, O_RDWR | O_CREAT | O_TRUNC | O_BINARY,
+    fd = open(request_file_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY,
                                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if(fd == -1) {
         printf(MSG_FILE_ERROR, "open", strerror(errno), errno);
