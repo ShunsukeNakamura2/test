@@ -63,36 +63,22 @@ int main(int argc, char *argv[])
         return RETURN_USAGE;
     }
 
-    /* パラメータtypeを取得 */
+    /* パラメータtype, numberを取得 */
     param_type_str = argv[pos_t + 1];
+    endptr = NULL;
     if(strcmp(param_type_str, "B2") == 0) {
         param_type = TYPE_B2;
+        param_number_B2 = (short)strtol(argv[pos_n + 1], &endptr, 10);
     } else if(strcmp(param_type_str, "B4") == 0) {
         param_type = TYPE_B4;
+        param_number_B4 = (int)strtol(argv[pos_n + 1], &endptr, 10);
     } else if(strcmp(param_type_str, "F4") == 0) {
         param_type = TYPE_F4;
+        param_number_F4 = (float)strtod(argv[pos_n + 1], &endptr);
     } else {
         printf(MSG_USAGE);
         return RETURN_USAGE;
     }
-
-    /* パラメータnumberを取得 */
-    endptr = NULL;
-    switch (param_type)
-    {
-    case TYPE_B2:
-        param_number_B2 = (short)strtol(argv[pos_n + 1], &endptr, 10);
-        break;
-    case TYPE_B4:
-        param_number_B4 = (int)strtol(argv[pos_n + 1], &endptr, 10);
-        break;
-    case TYPE_F4:
-        param_number_F4 = (float)strtod(argv[pos_n + 1], &endptr);
-        break;
-    default:
-        break;
-    }
-
     if (*endptr != '\0') {
         printf(MSG_USAGE);
         return RETURN_USAGE;
@@ -106,8 +92,7 @@ int main(int argc, char *argv[])
         return RETURN_FAIL_OPEN;
     }
 
-    switch (param_type)
-    {
+    switch (param_type) {
     case TYPE_B2:
         rc = write(fd, &param_number_B2, sizeof(param_number_B2));
         break;
