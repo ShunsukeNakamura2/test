@@ -19,8 +19,10 @@
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
-#define RETURN_FAIL_WRITE 4
-#define RETURN_FAIL_WRITE_CLOSE 5
+#define RETURN_FAIL_SEEK 4
+#define RETURN_FAIL_WRITE 5
+#define RETURN_FAIL_SEEK_CLOSE 6
+#define RETURN_FAIL_WRITE_CLOSE 7
 
 int main(int argc, char *argv[])
 {
@@ -74,13 +76,24 @@ int main(int argc, char *argv[])
         return RETURN_FAIL_OPEN;
     }
 
-    lseek(fd, size - 1, SEEK_SET);
-    write(fd, "\0", 1);
-
+    rc = lseek(fd, size - 1, SEEK_SET);
+    if(rc == -1) {
+        printf(MSG_FILE_ERROR, "seek", strerror(errno), errno);
+        main_rc = RETURN_FAIL_SEEK;
+    } else {
+        rc = write(fd, "\0", 1);
+        if(rc == -1) {
+            printf(MSG_FILE_ERROR, "write", strerror(errno), errno);
+            main_rc = RETURN_FAIL_WRITE;
+        }
+    }
+    
     rc = close(fd);
     if(rc == -1) {
         printf(MSG_FILE_ERROR, "close", strerror(errno), errno);
-        if(main_rc == RETURN_FAIL_WRITE) {
+        if(main_rc == RETURN_FAIL_SEEK) {
+            main_rc = RETURN_FAIL_SEEK_CLOSE;
+        } else if(main_rc == RETURN_FAIL_WRITE) {
             main_rc = RETURN_FAIL_WRITE_CLOSE;
         } else {
             main_rc = RETURN_FAIL_CLOSE;
