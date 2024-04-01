@@ -14,7 +14,7 @@
 
 #define MSG_USAGE "usage: プログラム名 -n number -t type -f filename\noptions: -n number  数値\n             -t type  B2|B4|F4\n             B2  バイナリ2バイト\n             B4  バイナリ4バイト\n             F4  浮動小数 4バイト\n             -f filename  ファイル名\n"
 #define MSG_FILE_ERROR "\nfile %s error\nerror:%s (code:%d)\n"
-#define RETURN_NOMAL_END 0
+#define RETURN_NORMAL_END 0
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
@@ -26,7 +26,7 @@
 
 int main(int argc, char *argv[])
 {
-    int main_rc = RETURN_NOMAL_END;
+    int main_rc = RETURN_NORMAL_END;
     int rc;
     int pos_n = -1; /* パラメータ-nの引数上の位置 */
     int pos_t = -1; /* パラメータ-tの引数上の位置 */
