@@ -12,7 +12,7 @@
 */
 
 #define BUFF_SIZE 256
-#define RETURN_NOMAL_END 0
+#define RETURN_NORMAL_END 0
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     int rc;
     char buff[BUFF_SIZE];
     ssize_t size;
-    int main_rc = RETURN_NOMAL_END;
+    int main_rc = RETURN_NORMAL_END;
 
     if(argc < 2) {
         printf("usage:kadai14 filename");
