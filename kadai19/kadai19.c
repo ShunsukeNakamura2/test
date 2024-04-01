@@ -16,7 +16,7 @@
 #define KILO 1024
 #define MSG_USAGE "usage: kadai19 filename size[M|K]\noptions: filename  ファイル名size[M|K]\n             サイズ(M=メガ,K=キロ)\n"
 #define MSG_FILE_ERROR "file %s error\nerror:%s (code:%d)\n"
-#define RETURN_NOMAL_END 0
+#define RETURN_NORMAL_END 0
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     char *request_size_str;
     int fd;
     int rc;
-    int main_rc = RETURN_NOMAL_END;
+    int main_rc = RETURN_NORMAL_END;
     
 
     if (argc < 3) {
