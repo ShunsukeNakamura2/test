@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	int i;
 	time_t time_start;
 	time_t time_now;
-	double diff_time;
+	double diff_sec;
 
 	pid = fork();
 	if(pid < 0) {
@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
 	printf("start:%s\n", ctime(&time_start));
 	while(1) {
 		time_now = time(NULL);
-		diff_time = difftime(time_now, time_start);
-		if(diff_time >= 10.0) {
+		diff_sec = difftime(time_now, time_start);
+		if(diff_sec >= 10.0) {
 			break;
 		}
 	}
