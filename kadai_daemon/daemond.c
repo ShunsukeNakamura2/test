@@ -26,7 +26,6 @@ static int get_open_max();
 int main(int argc, char *argv[])
 {
 	pid_t pid;
-	int count = 0;
 	int rep_num;
 	int i;
 	time_t time_start;
