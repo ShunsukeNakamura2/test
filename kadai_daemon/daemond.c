@@ -55,10 +55,10 @@ int main(int argc, char *argv[])
 
 	/* 10秒待って終了 */
 	time_start = time(NULL);
-	fprintf(stdout, "start:%s\n", ctime(&time_start));
+	printf("start:%s\n", ctime(&time_start));
 	sleep(10);
 	time_stop = time(NULL);
-	fprintf(stdout, "stop:%s\n", ctime(&time_stop));
+	printf("stop:%s\n", ctime(&time_stop));
 	return RETURN_NORMAL_END;
 }
 
@@ -83,9 +83,8 @@ static int get_open_max()
 	if(openmax < 0) {
 		if(errno != 0) {
 			return -1;
-		} else {
-			return OPEN_MAX_GUESS;
 		}
+		return OPEN_MAX_GUESS;
 	}
 	return openmax;
 }
