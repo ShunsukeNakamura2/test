@@ -35,12 +35,12 @@ int main(int argc, char *argv[])
 	if(pid < 0) {
 		fprintf(stderr, MSG_FORK_ERROR, strerror(errno), errno);
 		return RETURN_FAIL_FORK;
-	} else if(pid != 0) {
+	} else if(pid != 0) { /* 親を終了 */
 		exit(0);
 	}
 
-	setsid();
-	chdir("/");
+	setsid(); /* このプロセスをリーダーとして新規セッションを作成(現在の端末の制御を外れる) */
+	chdir("/"); /* 作業dirがマウントしたdirである可能性があるため変更 */
 
 	/* stdout, stderr以外のfdをclose */
 	rep_num = get_open_max();
@@ -71,9 +71,13 @@ int main(int argc, char *argv[])
 static int get_open_max()
 {
 #ifdef OPEN_MAX
-	return OPEN_MAX;
+	int openmax = OPEN_MAX;
 #else
 	int openmax = 0;
+#endif
+	if(openmax > 0) {
+		return openmax;
+	}
 	errno = 0;
 	openmax = sysconf(_SC_OPEN_MAX);
 	if(openmax < 0) {
@@ -84,6 +88,5 @@ static int get_open_max()
 		}
 	}
 	return openmax;
-#endif
 }
 
