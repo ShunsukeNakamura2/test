@@ -34,10 +34,9 @@ int main(int argc, char *argv[])
 {
     int main_rc = RETURN_NORMAL_END;
     int rc;
-    int rep_num;
     int fd;
-
     st_args params = {NULL, NULL, NULL, 0};
+    
     rc = analyze_args(argc, argv, &params);
     if(rc == -1) {
         printf(MSG_USAGE);
