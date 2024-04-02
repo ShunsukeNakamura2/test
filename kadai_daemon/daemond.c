@@ -29,12 +29,11 @@ int main(int argc, char *argv[])
 	int rep_num;
 	int i;
 	time_t time_start;
-	time_t time_now;
-	double diff_sec;
+	time_t time_stop;
 
 	pid = fork();
 	if(pid < 0) {
-		printf(MSG_FORK_ERROR, strerror(errno), errno);
+		fprintf(stderr, MSG_FORK_ERROR, strerror(errno), errno);
 		return RETURN_FAIL_FORK;
 	} else if(pid != 0) {
 		exit(0);
@@ -42,30 +41,24 @@ int main(int argc, char *argv[])
 
 	setsid();
 	chdir("/");
-	umask(0);
 
-	/* 標準出力以外のfdをclose */
+	/* stdout, stderr以外のfdをclose */
 	rep_num = get_open_max();
 	if(rep_num == -1) {
-		printf(MSG_GET_OPEN_MAX_ERROR, strerror(errno), errno);
+		fprintf(stderr, MSG_GET_OPEN_MAX_ERROR, strerror(errno), errno);
 		return RETURN_FAIL_OPEN_MAX;
 	}
 	close(0);
-	for(i = 2; i < rep_num; i++) {
+	for(i = 3; i < rep_num; i++) {
 		close(i);
 	}
 
 	/* 10秒待って終了 */
 	time_start = time(NULL);
-	printf("start:%s\n", ctime(&time_start));
-	while(1) {
-		time_now = time(NULL);
-		diff_sec = difftime(time_now, time_start);
-		if(diff_sec >= 10.0) {
-			break;
-		}
-	}
-	printf("stop:%s\n", ctime(&time_now));
+	fprintf(stdout, "start:%s\n", ctime(&time_start));
+	sleep(10);
+	time_stop = time(NULL);
+	fprintf(stdout, "stop:%s\n", ctime(&time_stop));
 	return RETURN_NORMAL_END;
 }
 
@@ -78,22 +71,19 @@ int main(int argc, char *argv[])
 static int get_open_max()
 {
 #ifdef OPEN_MAX
-	int openmax = OPEN_MAX;
+	return OPEN_MAX;
 #else
 	int openmax = 0;
-#endif
-	if(openmax != 0) {
-		return openmax;
-	}
-
 	errno = 0;
 	openmax = sysconf(_SC_OPEN_MAX);
-	if(openmax != -1) {
-		return openmax;
+	if(openmax < 0) {
+		if(errno != 0) {
+			return -1;
+		} else {
+			return OPEN_MAX_GUESS;
+		}
 	}
-	if(errno == 0) {
-		return OPEN_MAX_GUESS;
-	}
-	return -1;
+	return openmax;
+#endif
 }
 
