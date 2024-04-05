@@ -12,14 +12,21 @@
 * 範囲外の値かチェックする必要はありません)
 */
 
-#define MSG_USAGE "usage: プログラム名 -n number -t type -f filename\noptions: -n number  数値\n             -t type  B2|B4|F4\n             B2  バイナリ2バイト\n             B4  バイナリ4バイト\n             F4  浮動小数 4バイト\n             -f filename  ファイル名\n"
+#define MSG_USAGE \
+    "usage: プログラム名 -n number -t type -f filename\n"\
+    "options: -n number  数値\n"\
+    "             -t type  B2|B4|F4\n"\
+    "             B2  バイナリ2バイト\n"\
+    "             B4  バイナリ4バイト\n"\
+    "             F4  浮動小数 4バイト\n"\
+    "             -f filename  ファイル名\n"
 #define MSG_FILE_ERROR "\nfile %s error\nerror:%s (code:%d)\n"
 #define RETURN_NORMAL_END 0
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
 #define RETURN_FAIL_WRITE 4
-#define ARGC 7
+#define REQUIRED_ARGC 7
 
 typedef struct st_args {
     void *number;
@@ -35,7 +42,7 @@ int main(int argc, char *argv[])
     int main_rc = RETURN_NORMAL_END;
     int rc;
     int fd;
-    st_args params = {NULL, NULL, NULL, 0};
+    st_args params;
     
     rc = analyze_args(argc, argv, &params);
     if(rc == -1) {
@@ -87,12 +94,11 @@ static int analyze_args(int argc, char *argv[], st_args *args_val)
     float param_number_F4;
     char *endptr = NULL;
 
-    if(argc != ARGC) {
+    if(argc != REQUIRED_ARGC) {
         return -1;
     }
 
-    args_val->type = NULL;
-    args_val->filename = NULL;
+    memset(args_val, 0, sizeof(st_args));
 
     /* オプションとパラメータを設定 */
     for(int i = 1; i < argc; i++) {
