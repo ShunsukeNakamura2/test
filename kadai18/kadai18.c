@@ -11,14 +11,13 @@
 #define LINE_NUM 16                     /* 1行あたりLINE_NUMバイトずつ表示 */
 #define OUTPUT_NUM (LINE_NUM * 3 + 1)   /* 1行あたりのデータ部の出力文字数 */
 #define MSG_USAGE "usage: kadai18 filename\noptions: filename ファイル名\n"
-#define MSG_FILE_ERROR "\nfile %s error\nerror:%s (code:%d)\n"
 #define RETURN_NORMAL_END 0
 #define RETURN_USAGE 1
 #define RETURN_FAIL_OPEN 2
 #define RETURN_FAIL_CLOSE 3
 #define RETURN_FAIL_READ 4
-#define DISP_FILE_ERROR_MSG(err)                    \
-    printf(MSG_FILE_ERROR, #err, strerror(err), err)     
+#define DISP_FILE_ERROR_MSG(operation) \
+    printf("\nfile %s error\nerror:%s (code:%d)\n", operation, strerror(errno), errno)     
 
 int main(int argc, char *argv[])
 {
@@ -36,8 +35,7 @@ int main(int argc, char *argv[])
     
     fd = open(argv[1], O_RDONLY | O_BINARY);
     if(fd == -1) {
-        int open = errno;
-        DISP_FILE_ERROR_MSG(open);
+        DISP_FILE_ERROR_MSG("open");
         return RETURN_FAIL_OPEN;
     }
     
@@ -46,8 +44,7 @@ int main(int argc, char *argv[])
         unsigned char output[OUTPUT_NUM] = {0};
         read_size = read(fd, line, sizeof(line));
         if(read_size == -1) {
-            int read = errno;
-            DISP_FILE_ERROR_MSG(read);
+            DISP_FILE_ERROR_MSG("read");
             main_rc = RETURN_FAIL_READ;
             goto end;
         } else if(read_size == 0) {
@@ -69,8 +66,7 @@ int main(int argc, char *argv[])
 end:
     rc = close(fd);
     if(rc == -1) {
-        int close = errno;
-        DISP_FILE_ERROR_MSG(close);
+        DISP_FILE_ERROR_MSG("close");
         if(main_rc == RETURN_NORMAL_END) {
             main_rc = RETURN_FAIL_CLOSE;
         }
