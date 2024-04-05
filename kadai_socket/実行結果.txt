@@ -1,0 +1,33 @@
+$ ./utltrandata
+usge:
+utltrandata -s portno -h hostname -f filename
+	-h hostname     指定されたホストに対して接続します。
+	-s portno       指定されたポート番号に対して接続します。
+	-f filename     指定されたファイルからデータを読み込みます。
+
+utltrandata -r portno -f filename
+	-r portno       指定されたポート番号で接続を待ちます。
+	-f filename     指定されたファイルにデータを追記します。
+
+$ ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+
+$ ps -uxw | grep utl
+nakamur+ 27030  0.0  0.0   4220    88 ?        Ss   11:36   0:00 ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+nakamur+ 27141  0.0  0.0 112828   980 pts/12   S+   11:38   0:00 grep --color=auto utl
+
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+$ cat out
+test
+abcdefg
+hello
+
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+$ cat out
+test
+abcdefg
+hello
+test
+abcdefg
+hello
