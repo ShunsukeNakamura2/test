@@ -1,0 +1,24 @@
+$ ./kadai20 -n 200 -t B2 -f
+usage: プログラム名 –n number –t type –f filename
+options: -n number  数値
+             -t type  B2|B4|F4
+             B2  バイナリ2バイト
+             B4  バイナリ4バイト
+             F4  浮動小数 4バイト
+             -f filename  ファイル名
+
+$ ./kadai20 -n 200 -t B2 -f out
+$ xxd out
+00000000: c800                                     ..
+
+$ ./kadai20 -n -10 -t B4 -f out
+$ xxd out
+00000000: c800 f6ff ffff                           ......
+
+$ ./kadai20 -n -10.1 -t F4 -f out
+$ xxd out
+00000000: c800 f6ff ffff 9a99 21c1                 ........!.
+
+$ ./kadai20 -f out -n 200 -t B2
+$ xxd out
+00000000: c800 f6ff ffff 9a99 21c1 c800            ........!...
