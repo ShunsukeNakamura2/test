@@ -8,19 +8,20 @@
 #define MODE_INPUT 1
 #define MODE_DISP  2
 #define RC_NORMAL_END		0
-#define RC_ARG_ERROR 		1
-#define RC_FILE_OPEN_ERROR 	2
-#define RC_INFILE_FORMAT_ERROR 	3
-#define RC_DB_FORMAT_ERROR	4
-#define RC_MEM_ALLOCATE_ERROR	5
-#define RC_SYSTEM_ERROR		6
+#define RC_ERR_ARG 		1
+#define RC_ERR_FILE_OPEN 	2
+#define RC_ERR_INFILE_FORMAT 	3
+#define RC_ERR_DB_FORMAT	4
+#define RC_ERR_MEM_ALLOCATE	5
+#define RC_ERR_SYSTEM		6
 
-typedef struct st_args {
-	int mode;
-	int db_flag;
-	char *infile;
-	char *database;
-} st_args;
+/* 引数解析後のパラメータを入れる構造体 */
+typedef struct CmdParams_t {
+	int mode;	/* 動作モード */
+	int db_flag;	/* 入力モード時 -o database オプションが指定されているか */
+	char *infile;	/* -i infile で渡される入力ファイルへのパス */
+	char *database;	/* -o(-r) database で渡されるDBファイルへのパス */
+} CmdParams;
 
 typedef struct WordData_t {
 	char *word;		/* 単語が格納されたメモリへのポインタ */
@@ -28,24 +29,35 @@ typedef struct WordData_t {
 	struct WordData_t *next;/* 次の単語データ(WordData)へのポインタ */
 } WordData;
 
+/* proc_input_request()で使用する(初期化が必要な)データをまとめた構造体 */
+typedef struct InputModeData_t {
+	
+} InputModeData;
 
-static int analyze_args(int argc, char *argv[], st_args *params);
-static int input_mode_process(st_args params);
-static int disp_mode_process(st_args params);
+/* proc_disp_request()で使用する(初期化が必要な)データをまとめた構造体 */
+typedef struct DispModeData_t {
 
-/* リスト操作関連 */
-static int read_database(char *database, WordData *root);
-static int write_database(char *database, WordData *root);
-static int read_input_file(char *filename, WordData *root);
-static WordData* make_new_word(char *word, int count);
-static void disp_all_words(WordData *root);
-static void free_list(WordData *root);
-static void add_word(WordData *new_word, WordData *root);
+}  DispModeData;
+
+static int analyze_args(int argc, char *argv[], CmdParams *params);
+/* 入力モード時処理 */
+static int proc_input_request(CmdParams params);
+/* DB表示モード時処理 */
+static int proc_disp_request(CmdParams params);
+/* WordDataリスト操作関連 */
+static int load_WDList_from_database(char *database, WordData *root);
+static int save_WDList_to_database(char *database, WordData *root);
+static int make_WDList_from_infile(char *infile, WordData *root);
+static WordData* create_WD(char *word, int count);
+static WordData* init_WDList();
+static void disp_WDList(WordData *root);
+static void free_WDList(WordData *root);
+static void add_to_WDList(WordData *new_word, WordData *root);
 
 int main(int argc, char *argv[])
 {
 	int rc;
-	st_args params;
+	CmdParams params;
 
 	/* 引数解析 */
 	rc = analyze_args(argc, argv, &params);
@@ -53,10 +65,10 @@ int main(int argc, char *argv[])
 
 	switch(params.mode) {
 	case MODE_INPUT:
-		rc = input_mode_process(params);
+		rc = proc_input_request(params);
 		break;
 	case MODE_DISP:
-		rc = disp_mode_process(params);
+		rc = proc_disp_request(params);
 		break;
 	default:
 		break;
@@ -75,7 +87,7 @@ int main(int argc, char *argv[])
  * @retval 0   正常終了
  * @retval -1  コマンドライン引数不正
  */
-static int analyze_args(int argc, char *argv[], st_args *params)
+static int analyze_args(int argc, char *argv[], CmdParams *params)
 {
 	return 0;
 }
@@ -86,41 +98,41 @@ static int analyze_args(int argc, char *argv[], st_args *params)
  * @param[in] params コマンドライン引数の解析済データ
  *
  * @retval RC_NORMAL_END          正常終了
- * @retval RC_FILE_OPEN_ERROR	  ファイルオープンエラー
- * @retval RC_INFILE_FORMAT_ERROR 入力ファイルフォーマットエラー
- * @retval RC_DB_FORMAT_ERROR     databaseファイルフォーマットエラー
- * @retval RC_MEM_ALLOCATE_ERROR  メモリ確保エラー
- * @retval RC_SYSTEM_ERROR        その他、致命的なエラー
+ * @retval RC_ERR_FILE_OPEN	  ファイルオープンエラー
+ * @retval RC_ERR_INFILE_FORMAT 入力ファイルフォーマットエラー
+ * @retval RC_ERR_DB_FORMAT     databaseファイルフォーマットエラー
+ * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
+ * @retval RC_ERR_SYSTEM        その他、致命的なエラー
  */
-static int input_mode_process(st_args params)
+static int proc_input_request(CmdParams params)
 {
 	int rc = RC_NORMAL_END;
 	WordData *root;
-	root = make_new_word(NULL, 0);
+	root = init_WDList();
 	if(root == NULL) {}
 
 	/* read database */
 	if(params.db_flag) {
-		rc = read_database(params.database, root);
+		rc = load_WDList_from_database(params.database, root);
 	}
 	if(rc != RC_NORMAL_END) {}
 
 	/* read infile */
-	rc = read_input_file(params.infile, root);
+	rc = make_WDList_from_infile(params.infile, root);
 	if(rc != RC_NORMAL_END) {}
 
 	/* output data */
 	if(params.db_flag) {
 		/* write database */
-		rc = write_database(params.database, root);
+		rc = save_WDList_to_database(params.database, root);
 		if(rc != RC_NORMAL_END) {}
 	} else {
 		/* disp all words(stdout) */
-		disp_all_words(root);
+		disp_WDList(root);
 	}
 
 	/* clear list */
-	free_list(root);
+	free_WDList(root);
 
 	return 0;
 }
@@ -131,27 +143,27 @@ static int input_mode_process(st_args params)
  * @param[in] params コマンドライン引数の解析済データ
  *
  * @retval RC_NORMAL_END	  正常終了
- * @retval RC_FILE_OPEN_ERROR     ファイルオープンエラー
- * @retval RC_DB_FORMAT_ERROR	  databaseファイルフォーマットエラー
- * @retval RC_MEM_ALLOCATE_ERROR  メモリ確保エラー
- * @retval RC_SYSTEM_ERROR	  その他、致命的なエラー
+ * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
+ * @retval RC_ERR_DB_FORMAT	  databaseファイルフォーマットエラー
+ * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
+ * @retval RC_ERR_SYSTEM	  その他、致命的なエラー
  */
-static int disp_mode_process(st_args params)
+static int proc_disp_request(CmdParams params)
 {
 	int rc = RC_NORMAL_END;
 	WordData *root;
-	root = make_new_word(NULL, 0);
+	root = init_WDList();
 	if(root == NULL) {}
 	
 	/* read database */
-	rc = read_database(params.database, root);
+	rc = load_WDList_from_database(params.database, root);
 	if(rc != RC_NORMAL_END) {}
 
 	/* disp all words(stdout) */
-	disp_all_words(root);
+	disp_WDList(root);
 	
 	/* リストのメモリを解放 */
-	free_list(root);
+	free_WDList(root);
 
 	return 0;
 }
@@ -163,12 +175,12 @@ static int disp_mode_process(st_args params)
  * @param[in,out] root      WordDataリストの先頭要素のアドレス
  *
  * @retval RC_NORMAL_END          正常終了
- * @retval RC_FILE_OPEN_ERROR     ファイルオープンエラー
- * @retval RC_DB_FORMAT_ERROR     databaseファイルフォーマットエラー
- * @retval RC_MEM_ALLOCATE_ERROR  メモリ確保エラー
- * @retval RC_SYSTEM_ERROR        その他、致命的なエラー
+ * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
+ * @retval RC_ERR_DB_FORMAT     databaseファイルフォーマットエラー
+ * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
+ * @retval RC_ERR_SYSTEM        その他、致命的なエラー
  */
-static int read_database(char *database, WordData *root)
+static int load_WDList_from_database(char *database, WordData *root)
 {	
 	WordData *new_word;
 
@@ -177,11 +189,11 @@ static int read_database(char *database, WordData *root)
 	/* databaseを全て読み込み */
 	while(0) {
 		/* 単語を一つ取得 */
-		new_word = make_new_word(NULL, 0);
+		new_word = create_WD(NULL, 0);
 		if(new_word == NULL) {}
 
 		/* 取得した単語をリストに追加 */
-		add_word(root, new_word);
+		add_to_WDList(root, new_word);
 	}
 
 	/*close database */
@@ -196,10 +208,10 @@ static int read_database(char *database, WordData *root)
  * @param[in] WordData  WordDataリストの先頭要素のアドレス
  *
  * @retval RC_NORMAL_END       正常終了
- * @retval RC_FILE_OPEN_ERROR  ファイルオープンエラー
- * @retval RC_SYSTEM_ERROR     その他、致命的なエラー
+ * @retval RC_ERR_FILE_OPEN  ファイルオープンエラー
+ * @retval RC_ERR_SYSTEM     その他、致命的なエラー
  */
-static int write_database(char *database, WordData *root)
+static int save_WDList_to_database(char *database, WordData *root)
 {
 	return 0;
 }
@@ -207,16 +219,16 @@ static int write_database(char *database, WordData *root)
 /**
  * @brief 入力ファイルの単語をカウントし、WordDataのリストに格納する
  *
- * @param[in]	  filename  読み込み対象の入力ファイル名
- * @param[in,out] root	    WordDataリストの先頭要素のアドレス
+ * @param[in]	  infile  読み込み対象の入力ファイル名
+ * @param[in,out] root	  WordDataリストの先頭要素のアドレス
  *
  * @retval RC_NORMAL_END          正常終了
- * @retval RC_FILE_OPEN_ERROR     ファイルオープンエラー
- * @retval RC_INFILE_FORMAT_ERROR 入力ファイルフォーマットエラー
- * @retval RC_MEM_ALLOCATE_ERROR  メモリ確保エラー
- * @retval RC_SYSTEM_ERROR        その他、致命的なエラー
+ * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
+ * @retval RC_ERR_INFILE_FORMAT 入力ファイルフォーマットエラー
+ * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
+ * @retval RC_ERR_SYSTEM        その他、致命的なエラー
  */
-static int read_input_file(char *filename, WordData *root)
+static int make_WDList_from_infile(char *infile, WordData *root)
 {
 	WordData *new_word;
 	char *buff;
@@ -225,11 +237,11 @@ static int read_input_file(char *filename, WordData *root)
 	/* 入力ファイルの全ての単語を読み込み */
 	while(0) {
 		/* 1単語読み込み */
-		new_word = make_new_word(buff, 1);
+		new_word = create_WD(buff, 1);
 		if(new_word == NULL) {}
 
 		/* リストに追加 */
-		add_word(new_word, root);
+		add_to_WDList(new_word, root);
 	}
 
 	/* close infile */
@@ -246,17 +258,24 @@ static int read_input_file(char *filename, WordData *root)
  * @return 成功時：作成したWordData構造体のアドレス
  *         失敗時：NULL
  */
-static WordData* make_new_word(char *word, int count)
+static WordData* create_WD(char *word, int count)
 {
 	return NULL;
 }
 
 /**
+ * @brief 新しいWordDataのリストを作成し、先頭要素のアドレスを返す
+ */
+static WordData* init_WDList()
+{
+	return create_WD(NULL, 0);
+}
+/**
  * @brief WordDataリストの中身をフォーマットに従い標準出力で表示する
  *
  * @param[in] root   WordDataリストの先頭要素のアドレス
  */
-static void disp_all_words(WordData *root)
+static void disp_WDList(WordData *root)
 {
 	return;
 }
@@ -266,7 +285,7 @@ static void disp_all_words(WordData *root)
  *
  * @param[in]   対象のリストの先頭要素のアドレス
  */
-static void free_list(WordData *root)
+static void free_WDList(WordData *root)
 {
 	return;
 }
@@ -277,7 +296,7 @@ static void free_list(WordData *root)
  * @param[in]    new_word  追加対象のWordDataのアドレス
  * @param[in,out] root      new_word追加先のWordDataリストの先頭要素アドレス
  */
-static void add_word(WordData *new_word, WordData *root)
+static void add_to_WDList(WordData *new_word, WordData *root)
 {
 	/* 単語がリストにあればcountを足す -> free(new_word) */
 	/* 単語がリストになければWordData.nextを繋ぎ変える */
