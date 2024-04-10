@@ -29,7 +29,6 @@
 	"	-f filename	指定されたファイルにデータを追記します。\n"
 #define MSG_ERR_COMMON "error:%s (code:%d)\n"
 #define MSG_ERR_FILE "file %s error\n"MSG_ERR_COMMON
-#define MSG_ERR_CLOSE "failed to close %s\n"MSG_ERR_COMMON
 #define MSG_ERR_FORK "fork error\n"MSG_ERR_COMMON
 #define MSG_ERR_GET_OPEN_MAX "failed to get file descriptor openmax\n"MSG_ERR_COMMON
 #define MSG_ERR_SOCKET "failed to socket\n"MSG_ERR_COMMON
@@ -72,16 +71,16 @@ typedef struct st_args {
 
 static int analyze_args(int argc, char *argv[], st_args *params);
 static int get_open_max();
-static int daemon_init();
-static int send_process(st_args params);
-static int recv_process(st_args params);
+static int init_daemon();
+static int run_sending_proc(st_args params);
+static int run_receiving_proc(st_args params);
 static int prepare_recv_socket(unsigned short portno);
 static int recv_data(int client_fd, char *filename);
 static int send_connect(char *hostname, unsigned short portno);
 
 int main(int argc, char *argv[]) {
 	int rc;
-	st_args params = {NULL, NULL, 0, -1};
+	st_args params = {0};
 
 	rc = analyze_args(argc, argv, &params);
 	if(rc == -1) {
@@ -91,19 +90,19 @@ int main(int argc, char *argv[]) {
 
 	switch(params.mode) {
 	case MODE_SEND:
-		rc = send_process(params);
+		rc = run_sending_proc(params);
 		if(rc == -1) {
 			fprintf(stderr, MSG_ERR_SEND_PROCESS);
 			return RETURN_ERR_SEND;
 		}
 		break;
 	case MODE_RECV:
-		rc = daemon_init();
+		rc = init_daemon();
 		if(rc == -1) {
 			fprintf(stderr, MSG_ERR_DAEMON_INIT);
 			return RETURN_ERR_DAEMONIZE;
 		}
-		rc = recv_process(params);
+		rc = run_receiving_proc(params);
 		if(rc == -1) {
 			fprintf(stderr, MSG_ERR_RECV_PROCESS);
 			return RETURN_ERR_RECV;
@@ -135,8 +134,6 @@ static int analyze_args(int argc, char *argv[], st_args *params)
 	if(argc < ARGC_MIN ) {
 		return -1;
 	}
-	
-	memset(params, 0, sizeof(st_args));
 
 	/* オプションとパラメータを取得 */
 	for(i = 0; i < argc; i++) {
@@ -183,12 +180,12 @@ static int analyze_args(int argc, char *argv[], st_args *params)
 
 	/* パラメータに過不足がある場合引数不正 */
 	switch(params->mode) {
-	case(MODE_SEND):
+	case MODE_SEND:
 		if(params->hostname == NULL || params->filename == NULL || portno_str == NULL) {
 			return -1;
 		}
 		break;
-	case(MODE_RECV):
+	case MODE_RECV:
 		/* 受信モードではhostnameを指定してはいけない */
 		if(params->hostname != NULL || params->filename == NULL || portno_str == NULL) {
 			return -1;
@@ -207,6 +204,11 @@ static int analyze_args(int argc, char *argv[], st_args *params)
 	if(tmp_portno < 0 || tmp_portno > 65535) {
 		return -1;
 	}
+	/* Well Known Ports が指定されていないかチェック */
+	if(0 <= tmp_portno && tmp_portno <= 1023) {
+		fprintf(stderr, MSG_ERR_USE_WELL_KNOUN_PORT);
+		return -1;
+	}
 	params->portno = (unsigned short)tmp_portno;
 
 	return 0;
@@ -218,7 +220,7 @@ static int analyze_args(int argc, char *argv[], st_args *params)
  * @retval 0  デーモン化成功
  * @retval -1 デーモン化失敗
  */
-static int daemon_init()
+static int init_daemon()
 {
 	pid_t pid;
 	int rep_num;
@@ -286,19 +288,13 @@ static int get_open_max()
  * @retval 0  正常終了(これが返されるルートは無い)
  * @retval -1 異常終了
  */
-static int recv_process(st_args params)
+static int run_receiving_proc(st_args params)
 {
 	int sock_fd = -1;
 	int client_fd = -1;
 	int rc;
 	struct sockaddr_in client_addr;
 	socklen_t client_addr_len = sizeof(client_addr);
-
-	/* Well Known Ports が指定されていないかチェック */
-	if(0 <= params.portno && params.portno <= 1023) {
-		fprintf(stderr, MSG_ERR_USE_WELL_KNOUN_PORT);
-		return -1;
-	}
 
 	/* 受信用のソケットを準備 */
 	sock_fd = prepare_recv_socket(params.portno);
@@ -311,6 +307,7 @@ static int recv_process(st_args params)
 		client_fd = accept(sock_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 		if(client_fd == -1) {
 			fprintf(stderr, MSG_ERR_ACCEPT, strerror(errno), errno);
+			rc = -1;
 			goto end;
 		}
 
@@ -321,30 +318,20 @@ static int recv_process(st_args params)
 		}
 
 		/* ソケットを閉じて次の接続へ */
-		rc = close(client_fd);
+		close(client_fd);
 		client_fd = -1;
-		if(rc == -1) {
-			fprintf(stderr, MSG_ERR_CLOSE, "client socket", strerror(errno), errno);
-			goto end;
-		}
 	}
 
 end:
 	/* fdを開いていたら閉じる */
 	if(client_fd > 0) {
-		rc = close(client_fd);
-		if(rc == -1) {
-			fprintf(stderr, MSG_ERR_CLOSE, "client socket", strerror(errno), errno);
-		}
+		close(client_fd);
 	}
 	if(sock_fd > 0) {
-		rc = close(sock_fd);
-		if(rc == -1) {
-			fprintf(stderr, MSG_ERR_CLOSE, "server socket", strerror(errno), errno);
-		}	
+		close(sock_fd);
 	}
 
-	return -1;
+	return rc;
 }
 
 /**
@@ -383,20 +370,16 @@ static int prepare_recv_socket(unsigned short portno)
 
 	/* ソケットを接続待ちに設定 接続要求を最大5件まで待たせる */
 	rc = listen(sock_fd, 5);
-	if(rc == 0) {
-		return sock_fd;
-	}
-	fprintf(stderr, MSG_ERR_LISTEN, strerror(errno), errno);
-	goto end;
-
-end:
-	/* 失敗時の後始末 */
-	rc = close(sock_fd);
 	if(rc == -1) {
-		fprintf(stderr, MSG_ERR_CLOSE, "server socket", strerror(errno), errno);
+		fprintf(stderr, MSG_ERR_LISTEN, strerror(errno), errno);
+		goto end;
 	}
-	return -1;
-
+end:
+	if(rc == -1) {
+		close(sock_fd);
+		return -1;
+	}
+	return sock_fd;
 }
 
 /**
@@ -424,23 +407,23 @@ static int recv_data(int client_fd, char *filename)
 		return -1;
 	}
 
-	FD_ZERO(&rfds);
-	FD_SET(client_fd, &rfds);
-	timeout.tv_sec = TIMEOUT_SEC;
-	timeout.tv_usec = 0;
-
 	while(1) {
 		memset(buff, 0, BUFF_SIZE);
 		/* recvを最大MAX_RECV_RETRY回リトライする */
 		for(retry_count = 0; retry_count < MAX_RECV_RETRY; retry_count++) {
 			/* ソケットが読み込み可能か確認 */
+			FD_ZERO(&rfds);
+			FD_SET(client_fd, &rfds);
+			timeout.tv_sec = TIMEOUT_SEC;
+			timeout.tv_usec = 0;
 			rc = select(client_fd + 1, &rfds, NULL, NULL, &timeout);
-			if(rc < 0) {
+			if(rc == -1) {
 				fprintf(stderr, MSG_ERR_SELECT, strerror(errno), errno);
 				goto end;
 			}
 			if(rc == 0) {
 				fprintf(stderr, MSG_ERR_RECV_TIMEOUT);
+				rc = -1;
 				continue;
 			}
 
@@ -448,6 +431,7 @@ static int recv_data(int client_fd, char *filename)
 			if(size >= 0) {
 				break;
 			}
+			rc = -1;
 			if(errno == EINTR || errno == EAGAIN) {  /* retryしてもいいエラー */
 				fprintf(stderr, MSG_ERR_RECV_RETRY);
 				continue;
@@ -464,23 +448,14 @@ static int recv_data(int client_fd, char *filename)
 		size = write(outfile_fd, buff, size);
 		if(size == -1) {
 			fprintf(stderr, MSG_ERR_FILE, "write", strerror(errno), errno);
+			rc = -1;
 			goto end;
 		}
 	}
 
-	rc = close(outfile_fd);
-	if(rc == -1) {
-		fprintf(stderr, MSG_ERR_FILE, "close", strerror(errno), errno);
-		return -1;
-	}
-	return 0;
-
 end:
-	rc = close(outfile_fd);
-	if(rc == -1) {
-		fprintf(stderr, MSG_ERR_FILE, "close", strerror(errno), errno);
-	}
-	return -1;
+	close(outfile_fd);
+	return rc == -1 ? -1 : 0;
 }
 
 /**
@@ -492,12 +467,11 @@ end:
  * @retval 0  正常終了
  * @retval -1 異常終了
  */
-static int send_process(st_args params)
+static int run_sending_proc(st_args params)
 {
 	int sock_fd = -1;
 	int infile_fd = -1;
-	int rc;
-	int main_rc = 0;
+	int rc = 0;
 	int retry_count;
 	ssize_t read_size;
 	ssize_t send_size;
@@ -514,20 +488,15 @@ static int send_process(st_args params)
 	infile_fd = open(params.filename, O_RDONLY);
 	if(infile_fd == -1) {
 		fprintf(stderr, MSG_ERR_FILE, "open", strerror(errno), errno);
-		main_rc = -1;
+		rc = -1;
 		goto end;
 	}
-
-	FD_ZERO(&wfds);
-	FD_SET(sock_fd, &wfds);
-	timeout.tv_sec = TIMEOUT_SEC;
-	timeout.tv_usec = 0;
 
 	while(1) {
 		read_size = read(infile_fd, buff, BUFF_SIZE);
 		if(read_size == -1) {
 			fprintf(stderr, MSG_ERR_FILE, "read", strerror(errno), errno);
-			main_rc = -1;
+			rc = -1;
 			goto end;
 		}
 		if(read_size == 0) {  /* 読み込むデータがなくなった */
@@ -537,14 +506,18 @@ static int send_process(st_args params)
 		/* sendを最大MAX_SEND_RETRY回リトライする */
 		for(retry_count = 0;retry_count < MAX_SEND_RETRY; retry_count++) {
 			/* ソケットが書き込み可能か確認 */
+			FD_ZERO(&wfds);
+			FD_SET(sock_fd, &wfds);
+			timeout.tv_sec = TIMEOUT_SEC;
+			timeout.tv_usec = 0;
 			rc = select(sock_fd + 1, NULL, &wfds, NULL, &timeout);
-			if(rc < 0) {
+			if(rc == -1) {
 				fprintf(stderr, MSG_ERR_SELECT, strerror(errno), errno);
-				main_rc = -1;
 				goto end;
 			}
 			if(rc == 0) {
 				fprintf(stderr, MSG_ERR_SEND_TIMEOUT);
+				rc = -1;
 				continue;
 			}
 
@@ -552,12 +525,12 @@ static int send_process(st_args params)
 			if(send_size > 0) {
 				break;
 			}
-			if(errno == EINTR || EAGAIN) { /* retryしてもいいエラー */
+			rc = -1;
+			if(errno == EINTR || errno == EAGAIN) { /* retryしてもいいエラー */
 				fprintf(stderr, MSG_ERR_SEND_RETRY);
 				continue;
 			} else {  /* retryしても復旧しないエラー */
 				fprintf(stderr, MSG_ERR_SEND, strerror(errno), errno);
-				main_rc = -1;
 				goto end;
 			}
 		}
@@ -567,20 +540,12 @@ static int send_process(st_args params)
 end:
 
 	if(infile_fd > 0) {
-		rc= close(infile_fd);
-		if(rc == -1) {
-			fprintf(stderr, MSG_ERR_FILE, "close", strerror(errno), errno);
-			main_rc = -1;
-		}
+		close(infile_fd);
 	}
 	if(sock_fd > 0) {
-		rc = close(sock_fd);
-		if(rc == -1) {
-			fprintf(stderr, MSG_ERR_CLOSE, "socket", strerror(errno), errno);
-			main_rc = -1;
-		}
+		close(sock_fd);
 	}
-	return main_rc;
+	return rc == -1 ? -1 : 0;
 }
 
 /**
@@ -610,6 +575,7 @@ static int send_connect(char *hostname, unsigned short portno)
 	server = gethostbyname(hostname);
 	if(server == NULL) {
 		fprintf(stderr, MSG_ERR_NAME_RESOL, strerror(h_errno), h_errno);
+		rc = -1;
 		goto end;
 	}
 
@@ -621,21 +587,16 @@ static int send_connect(char *hostname, unsigned short portno)
 
 	/* 接続 */
 	rc = connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr));
-	if(rc == 0) {
-		return sock_fd;
+	if(rc == -1) {
+		fprintf(stderr, MSG_ERR_CONNECT, strerror(errno), errno);
+		goto end;
 	}
-	fprintf(stderr, MSG_ERR_CONNECT, strerror(errno), errno);
-	goto end;
 
 end:	
-	/* 失敗時の後始末 */
-	rc = 0;
-	if(sock_fd > 0) {
-		rc = close(sock_fd);
-	}
 	if(rc == -1) {
-		fprintf(stderr, MSG_ERR_CLOSE, "socket", strerror(errno), errno);
+		close(sock_fd);
+		return -1;
 	}
-	return -1;
+	return sock_fd;
 }
 
