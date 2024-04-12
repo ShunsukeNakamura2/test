@@ -285,7 +285,6 @@ static int get_open_max()
  *
  * @param[in] params コマンドライン引数の解析済データ
  *
- * @retval 0  正常終了(これが返されるルートは無い)
  * @retval -1 異常終了
  */
 static int run_receiving_proc(st_args params)
@@ -307,7 +306,6 @@ static int run_receiving_proc(st_args params)
 		client_fd = accept(sock_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 		if(client_fd == -1) {
 			fprintf(stderr, MSG_ERR_ACCEPT, strerror(errno), errno);
-			rc = -1;
 			goto end;
 		}
 
@@ -319,19 +317,16 @@ static int run_receiving_proc(st_args params)
 
 		/* ソケットを閉じて次の接続へ */
 		close(client_fd);
-		client_fd = -1;
 	}
 
 end:
 	/* fdを開いていたら閉じる */
-	if(client_fd > 0) {
+	if(client_fd >= 0) {
 		close(client_fd);
 	}
-	if(sock_fd > 0) {
-		close(sock_fd);
-	}
+	close(sock_fd);
 
-	return rc;
+	return -1;
 }
 
 /**
@@ -420,8 +415,7 @@ static int recv_data(int client_fd, char *filename)
 			if(rc == -1) {
 				fprintf(stderr, MSG_ERR_SELECT, strerror(errno), errno);
 				goto end;
-			}
-			if(rc == 0) {
+			} else if(rc == 0) {
 				fprintf(stderr, MSG_ERR_RECV_TIMEOUT);
 				rc = -1;
 				continue;
@@ -435,10 +429,10 @@ static int recv_data(int client_fd, char *filename)
 			if(errno == EINTR || errno == EAGAIN) {  /* retryしてもいいエラー */
 				fprintf(stderr, MSG_ERR_RECV_RETRY);
 				continue;
-			} else {  /* retryしても復旧できないエラー */
-				fprintf(stderr, MSG_ERR_RECV, strerror(errno), errno);
-				goto end;
 			}
+			/* retryしても復旧できないエラー */
+			fprintf(stderr, MSG_ERR_RECV, strerror(errno), errno);
+			goto end;
 		}
 
 		if(size == 0) { /* 相手が接続を終わったと判断 */
@@ -498,8 +492,7 @@ static int run_sending_proc(st_args params)
 			fprintf(stderr, MSG_ERR_FILE, "read", strerror(errno), errno);
 			rc = -1;
 			goto end;
-		}
-		if(read_size == 0) {  /* 読み込むデータがなくなった */
+		} else if(read_size == 0) {  /* 読み込むデータがなくなった */
 			break;
 		}
 
@@ -514,8 +507,7 @@ static int run_sending_proc(st_args params)
 			if(rc == -1) {
 				fprintf(stderr, MSG_ERR_SELECT, strerror(errno), errno);
 				goto end;
-			}
-			if(rc == 0) {
+			} else if(rc == 0) {
 				fprintf(stderr, MSG_ERR_SEND_TIMEOUT);
 				rc = -1;
 				continue;
@@ -529,22 +521,20 @@ static int run_sending_proc(st_args params)
 			if(errno == EINTR || errno == EAGAIN) { /* retryしてもいいエラー */
 				fprintf(stderr, MSG_ERR_SEND_RETRY);
 				continue;
-			} else {  /* retryしても復旧しないエラー */
-				fprintf(stderr, MSG_ERR_SEND, strerror(errno), errno);
-				goto end;
 			}
+			/* retryしても復旧しないエラー */
+			fprintf(stderr, MSG_ERR_SEND, strerror(errno), errno);
+			goto end;
 		}
 		
 	}
 
 end:
 
-	if(infile_fd > 0) {
+	if(infile_fd >= 0) {
 		close(infile_fd);
 	}
-	if(sock_fd > 0) {
-		close(sock_fd);
-	}
+	close(sock_fd);
 	return rc == -1 ? -1 : 0;
 }
 
