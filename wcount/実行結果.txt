@@ -1,3 +1,4 @@
+〇wcount –i infile の実行結果
 $ ./wcount
 usage : wcount [-o database] –i infile
         wcount –r database
@@ -136,3 +137,87 @@ years               2
 (invalidfile:1行が1025バイトのデータが含まれている)
 $ ./wcount -i invalidfile
 invalid file format. [invalidfile]
+
+
+〇wcount -o database –i infile  の実行結果
+$ cat in2
+a and b and c and d
+
+$ ls db
+ls: db にアクセスできません: そのようなファイルやディレクトリはありません
+
+$ ./wcount -i in2 -o db
+
+$ xxd db
+0000000: 0000 0002 6100 0000 0001 0000 0004 616e  ....a.........an
+0000010: 6400 0000 0003 0000 0002 6200 0000 0001  d.........b.....
+0000020: 0000 0002 6300 0000 0001 0000 0002 6400  ....c.........d.
+0000030: 0000 0001
+
+$ ./wcount -i in2 -o db
+
+$ xxd db
+0000000: 0000 0002 6100 0000 0002 0000 0004 616e  ....a.........an
+0000010: 6400 0000 0006 0000 0002 6200 0000 0002  d.........b.....
+0000020: 0000 0002 6300 0000 0002 0000 0002 6400  ....c.........d.
+0000030: 0000 0002
+
+〇wcount -r database  の実行結果
+$ cat in2
+a and b and c and d
+
+$ ./wcount -r db
+file open error. [No such file or directory][db]
+
+$ ./wcount -i in2 -o db
+
+$ ./wcount -r db
+a                   1
+and                 3
+b                   1
+c                   1
+d                   1
+
+(単語長がマイナスの値)
+$ xxd invaliddb1
+0000000: ffff ffff 6100 0000 0001 0000 0004 616e  ....a.........an
+0000010: 6400 0000 0003 0000 0002 6200 0000 0001  d.........b.....
+0000020: 0000 0002 6300 0000 0001 0000 0002 6400  ....c.........d.
+0000030: 0000 0001
+
+$ ./wcount -r invaliddb1
+invalid database format. [invaliddb1]
+
+〇バイトオーダー対応確認
+・v3l07503.hulft.saison.co.jp(little endian)
+$ ./wcount -i in2 -o db
+
+$ xxd db
+0000000: 0000 0002 6100 0000 0001 0000 0004 616e  ....a.........an
+0000010: 6400 0000 0003 0000 0002 6200 0000 0001  d.........b.....
+0000020: 0000 0002 6300 0000 0001 0000 0002 6400  ....c.........d.
+0000030: 0000 0001
+
+$ ./wcount -r db
+a                   1
+and                 3
+b                   1
+c                   1
+d                   1
+
+・zlinux801(big endian)
+$ ./wcount -i in2 -o db
+
+$ xxd db
+00000000: 0000 0002 6100 0000 0001 0000 0004 616e  ....a.........an
+00000010: 6400 0000 0003 0000 0002 6200 0000 0001  d.........b.....
+00000020: 0000 0002 6300 0000 0001 0000 0002 6400  ....c.........d.
+00000030: 0000 0001
+
+$ ./wcount -r db
+a                   1
+and                 3
+b                   1
+c                   1
+d                   1
+
