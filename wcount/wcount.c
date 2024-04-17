@@ -329,15 +329,15 @@ static int proc_disp_request(CmdParams params)
 	/* database読み込み */
 	rc = load_WDList_from_database(initialized_vars.fd_database, params.database, initialized_vars.root);
 	if(rc != RC_NORMAL_END) {
-		return rc;
+		goto end;
 	}
 
 	/* 標準出力 */
 	disp_WDList(initialized_vars.root);
-	
+end:	
 	finalize_proc_disp_request(&initialized_vars);
 	
-	return 0;
+	return rc;
 }
 
 /**
@@ -578,16 +578,18 @@ static WordData *create_WD(Token *token, int count)
 
 	/* rootの場合はwordへのメモリ割り当てを行わない */
 	if(token == NULL) {
-		return new_WD;
+		goto end;
 	}
 
 	new_WD->word = (char*)malloc(token->length);
 	if(new_WD->word == NULL) {
+		free(new_WD);
 		return NULL;
 	}
 
 	memcpy(new_WD->word, token->ptr, token->length);
 	new_WD->count = count;
+end:
 	return new_WD;
 }
 
