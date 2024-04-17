@@ -1,0 +1,98 @@
+〇パターン1
+  ・送信側：v3l07503.hulft.saison.co.jp
+  ・受信側：v3l07503.hulft.saison.co.jp
+$ ./utltrandata
+usge:
+utltrandata -s portno -h hostname -f filename
+	-h hostname     指定されたホストに対して接続します。
+	-s portno       指定されたポート番号に対して接続します。
+	-f filename     指定されたファイルからデータを読み込みます。
+
+utltrandata -r portno -f filename
+	-r portno       指定されたポート番号で接続を待ちます。
+	-f filename     指定されたファイルにデータを追記します。
+
+$ ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+
+$ ps -uxw | grep utl
+nakamur+ 27030  0.0  0.0   4220    88 ?        Ss   11:36   0:00 ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+nakamur+ 27141  0.0  0.0 112828   980 pts/12   S+   11:38   0:00 grep --color=auto utl
+
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+$ cat out
+test
+abcdefg
+hello
+
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+$ cat out
+test
+abcdefg
+hello
+test
+abcdefg
+hello
+
+〇パターン2
+  ・送信側：v3l07503.hulft.saison.co.jp
+  ・受信側：v3r08101
+(v3r08101：受信側)
+$ ./utltrandata -r 30099 -f /home/guest/nakamura/out
+$ ps -uxw | grep utl
+guest     9050  0.0  0.0   4236    72 ?        Ss   13:18   0:00 ./utltrandata -r 30099 -f /home/guest/nakamura/out
+guest     9083  0.0  0.0  12140  1172 pts/0    S+   13:31   0:00 grep --color=auto utl
+
+(v3l07503.hulft.saison.co.jp：送信側)
+$ ./utltrandata -s 30099 -h v3r08101 -f in
+
+(v3r08101：受信側)
+$ cat out
+test
+abcdefg
+hello
+
+(v3l07503.hulft.saison.co.jp：送信側)
+ 45 $ ./utltrandata -s 30099 -h v3r08101 -f in
+
+(v3r08101：受信側)
+$ cat out
+test
+abcdefg
+hello
+test
+abcdefg
+hello
+
+〇パターン3
+  ・送信側：v3r08101
+  ・受信側：v3l07503.hulft.saison.co.jp
+(v3l07503.hulft.saison.co.jp：受信側)
+$ ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+$ ps -uxw | grep utl
+nakamur+  1013  0.0  0.0   4220    88 ?        Ss   13:35   0:00 ./utltrandata -r 30099 -f /home/nakamura_s/workspace/c_kadai/test/kadai_socket/out
+nakamur+  1045  0.0  0.0 112828   980 pts/8    S+   13:36   0:00 grep --color=auto utl
+$ ss -tulpn | grep 30099
+tcp    LISTEN     0      5         *:30099                 *:*                   users:(("utltrandata",pid=1013,fd=0))
+
+(v3r08101：送信側)
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+(v3l07503.hulft.saison.co.jp：受信側)
+$ cat out
+test
+abcdefg
+hello
+
+(v3r08101：送信側)
+$ ./utltrandata -s 30099 -h v3l07503.hulft.saison.co.jp -f in
+
+(v3l07503.hulft.saison.co.jp：受信側)
+$ cat out
+test
+abcdefg
+hello
+test
+abcdefg
+hello
