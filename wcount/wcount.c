@@ -69,31 +69,38 @@ typedef struct StrSplitter_t {
 	int offset;	/* 区切り処理を開始する地点 */
 } StrSplitter;
 
+/* infileから読み込んだデータ */
+typedef struct ReadChunk_t {
+	char str[INFILE_LINE_MAX];/* infileからINFILE_LINE_MAXバイト読んだ文字列 */
+	int skipped_len;	  /* 前回の読み込み時にskipした文字列の長さ */
+} ReadChunk;
+
 static int analyze_args(int argc, char *argv[], CmdParams *params);
 /* 入力モード時処理 */
 static int proc_input_request(CmdParams params);
-static int init_proc_input_request(InputModeData *init_data, CmdParams params);
-static void finalize_proc_input_request(InputModeData *init_data);
+static int init_input_data(InputModeData *init_data, CmdParams params);
+static void finalize_input_data(InputModeData *init_data);
 /* DB表示モード時処理 */
 static int proc_disp_request(CmdParams params);
-static int init_proc_disp_request(DispModeData *init_data, CmdParams params);
-static void finalize_proc_disp_request(DispModeData *init_data);
+static int init_disp_data(DispModeData *init_data, CmdParams params);
+static void finalize_disp_data(DispModeData *init_data);
 /* WordDataリスト操作関連 */
-static int load_WDList_from_database(int fd_database, char *database, WordData *root);
-static int save_WDList_to_database(int fd_database, WordData *root);
-static int make_WDList_from_infile(int fd_infile, char *infilename, WordData *root);
+static int load_WDList_from_database(WordData *root, int fd_database, char *database);
+static int save_WDList_to_database(WordData *root, int fd_database);
+static int make_WDList_from_infile(WordData *root, int fd_infile, char *infile);
 static WordData *create_WD(Token *token, int count);
+static int create_WD_from_database(int fd_database, char *database, int length, WordData **new_WD);
 static WordData *init_WDList();
 static void disp_WDList(WordData *root);
 static void free_WDList(WordData *root);
-static void add_to_WDList(WordData *new_word, WordData *root);
+static void add_to_WDList(WordData *root, WordData *new_WD);
 /* utility */
-static void get_token(StrSplitter *str, Token *token);
-static int get_word_from_database(int fd_database, char *database, char *word, int length);
+static Token *get_token(StrSplitter *str_splitter, Token *token);
 static int get_word_length_from_database(int fd_database, char *database, int *length);
 static int get_word_count_from_database(int fd_database, char *database, int *count);
-static int get_line(int fd_infile, char *infilename, char *line, int *skipped_len);
+static int get_chunk(int fd_infile, char *infile, ReadChunk *read_chunk);
 static int search_last_newline(char *str, int length);
+static int bswap_little_endian(int data);
 
 int main(int argc, char *argv[])
 {
@@ -115,6 +122,9 @@ int main(int argc, char *argv[])
 		rc = proc_disp_request(params);
 		break;
 	default:
+		/* バグ以外でここに来ることはありえない */
+		fprintf(stderr, MSG_ERR_SYSTEM);
+		rc = RC_ERR_SYSTEM;
 		break;
 	}
 
@@ -135,7 +145,7 @@ static int analyze_args(int argc, char *argv[], CmdParams *params)
 {
 	int i;
 	
-	for(i = 0; i < argc; i++) {
+	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "-i") == 0){
 			/* 入力モード */
 			if(params->mode != 0) {
@@ -166,8 +176,7 @@ static int analyze_args(int argc, char *argv[], CmdParams *params)
 			}
 			params->db_flag = 1;
 			params->database = argv[i];
-		} else if(*argv[i] == '-') {
-			/* -i,-r,-o以外のオプション*/
+		} else {
 			return -1;
 		}
 	}
@@ -204,86 +213,84 @@ static int analyze_args(int argc, char *argv[], CmdParams *params)
 static int proc_input_request(CmdParams params)
 {
 	int rc;
-	InputModeData initialized_vars;
+	InputModeData input_data;
 
-	rc = init_proc_input_request(&initialized_vars, params);
+	rc = init_input_data(&input_data, params);
 	if(rc != RC_NORMAL_END) {
 		return rc;
 	}
 
 	/* database読み込み */
 	if(params.db_flag) {
-		rc = load_WDList_from_database(initialized_vars.fd_database, params.database, initialized_vars.root);
-	}
-	if(rc != RC_NORMAL_END) {
-		goto end;
+		rc = load_WDList_from_database(input_data.root, input_data.fd_database, params.database);
+		if(rc != RC_NORMAL_END) {
+			goto end;
+		}
 	}
 
 	/* infile読み込み */
-	rc = make_WDList_from_infile(initialized_vars.fd_infile, params.infile, initialized_vars.root);
+	rc = make_WDList_from_infile(input_data.root, input_data.fd_infile, params.infile);
 	if(rc != RC_NORMAL_END) {
 		goto end;
 	}
 
 	if(params.db_flag) {
 		/* databaseへ出力 */
-		rc = save_WDList_to_database(initialized_vars.fd_database, initialized_vars.root);
+		rc = save_WDList_to_database(input_data.root, input_data.fd_database);
 		if(rc != RC_NORMAL_END) {
 			goto end;
 		}
 	} else {
 		/* 標準出力 */
-		disp_WDList(initialized_vars.root);
+		disp_WDList(input_data.root);
 	}
 end:
-	finalize_proc_input_request(&initialized_vars);
+	finalize_input_data(&input_data);
 
 	return rc;
 }
 
 /**
- * @brief proc_input_request()で使用するfdのopne、構造体リストの作成を行う
+ * @brief proc_input_request()で使用するfdのopen、構造体リストの作成を行う
  *
- * @param[in,out] init_data  関数内で使用する初期化が必要な変数をまとめた構造体
- * @param[in]     params     コマンドライン引数の解析済みパラメータ
+ * @param[in,out] input_data  関数内で使用する初期化が必要な変数をまとめた構造体
+ * @param[in]     params      コマンドライン引数の解析済みパラメータ
  *
  * @retval RC_NORMAL_END        正常終了
  * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
  * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
  */
-static int init_proc_input_request(InputModeData *init_data, CmdParams params)
+static int init_input_data(InputModeData *input_data, CmdParams params)
 {
 	int rc = RC_NORMAL_END;
+	input_data->fd_database = -1;
 
-	init_data->root = init_WDList();
-	if(init_data->root == NULL) {
+	input_data->root = init_WDList();
+	if(input_data->root == NULL) {
 		fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 		return RC_ERR_MEM_ALLOCATE;
 	}
 
-	init_data->fd_infile = open(params.infile, O_RDONLY);
-	if(init_data->fd_infile == -1) {
+	input_data->fd_infile = open(params.infile, O_RDONLY);
+	if(input_data->fd_infile == -1) {
 		fprintf(stderr, MSG_ERR_FILE_OPEN, strerror(errno), params.infile);
 		rc = RC_ERR_FILE_OPEN;
-		init_data->fd_database = -1;
 		goto end;
 	}
 
-	if(!params.db_flag) {
-		goto end;
-	}
-
-	init_data->fd_database = open(params.database, O_RDWR | O_CREAT,
+	if(params.db_flag) {
+		input_data->fd_database = open(params.database, O_RDWR | O_CREAT,
 				S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if(init_data->fd_database == -1) {
-		fprintf(stderr, MSG_ERR_FILE_OPEN, strerror(errno), params.database);
-		rc = RC_ERR_FILE_OPEN;
-		goto end;
+		if(input_data->fd_database == -1) {
+			fprintf(stderr, MSG_ERR_FILE_OPEN, strerror(errno), params.database);
+			rc = RC_ERR_FILE_OPEN;
+			goto end;
+		}
 	}
 
 end:
 	if(rc != RC_NORMAL_END) {
-		finalize_proc_input_request(init_data);
+		finalize_input_data(input_data);
 	}
 	return rc;
 }
@@ -291,16 +298,16 @@ end:
 /**
  * @brief proc_input_request()で使用したfdのclose、構造体リストの解放を行う
  *
- * @param[in] init_data  関数内で使用した、終了処理が必要な変数をまとめた構造体
+ * @param[in] input_data  関数内で使用した、終了処理が必要な変数をまとめた構造体
  */
-static void finalize_proc_input_request(InputModeData *init_data)
+static void finalize_input_data(InputModeData *input_data)
 {
-	free_WDList(init_data->root);
-	if(init_data->fd_infile >= 0) {
-		close(init_data->fd_infile);
+	free_WDList(input_data->root);
+	if(input_data->fd_infile >= 0) {
+		close(input_data->fd_infile);
 	}
-	if(init_data->fd_database >= 0) {
-		close(init_data->fd_database);
+	if(input_data->fd_database >= 0) {
+		close(input_data->fd_database);
 	}
 	return;
 }
@@ -319,29 +326,29 @@ static void finalize_proc_input_request(InputModeData *init_data)
 static int proc_disp_request(CmdParams params)
 {
 	int rc;
-	DispModeData initialized_vars;
+	DispModeData disp_data;
 	
-	rc = init_proc_disp_request(&initialized_vars, params);
+	rc = init_disp_data(&disp_data, params);
 	if(rc != RC_NORMAL_END) {
 		return rc;
 	}
 	
 	/* database読み込み */
-	rc = load_WDList_from_database(initialized_vars.fd_database, params.database, initialized_vars.root);
+	rc = load_WDList_from_database(disp_data.root, disp_data.fd_database, params.database);
 	if(rc != RC_NORMAL_END) {
 		goto end;
 	}
 
 	/* 標準出力 */
-	disp_WDList(initialized_vars.root);
+	disp_WDList(disp_data.root);
 end:	
-	finalize_proc_disp_request(&initialized_vars);
+	finalize_disp_data(&disp_data);
 	
 	return rc;
 }
 
 /**
- * @brief proc_disp_request()で使用するfdのopne、構造体リストの作成を行う
+ * @brief proc_disp_request()で使用するfdのopen、構造体リストの作成を行う
  *
  * @param[in,out] init_data  関数内で使用する初期化が必要な変数をまとめた構造体
  * @param[in]     params     コマンドライン引数の解析済みパラメータ
@@ -350,24 +357,24 @@ end:
  * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
  * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
  */
-static int init_proc_disp_request(DispModeData *init_data, CmdParams params)
+static int init_disp_data(DispModeData *disp_data, CmdParams params)
 {
 	int rc = RC_NORMAL_END;
 	
-	init_data->root = init_WDList();;
-	if(init_data->root == NULL) {
+	disp_data->root = init_WDList();
+	if(disp_data->root == NULL) {
 		fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 		return RC_ERR_MEM_ALLOCATE;
 	}
 
-	init_data->fd_database = open(params.database, O_RDONLY);
-	if(init_data->fd_database == -1) {
+	disp_data->fd_database = open(params.database, O_RDONLY);
+	if(disp_data->fd_database == -1) {
 		fprintf(stderr, MSG_ERR_FILE_OPEN, strerror(errno), params.database);
 		rc = RC_ERR_FILE_OPEN;
 	}
 
 	if(rc != RC_NORMAL_END) {
-		finalize_proc_disp_request(init_data);
+		finalize_disp_data(disp_data);
 	}
 	return rc;
 }
@@ -377,11 +384,11 @@ static int init_proc_disp_request(DispModeData *init_data, CmdParams params)
  *
  * @param[in] init_data  関数内で使用した、終了処理が必要な変数をまとめた構造体
  */
-static void finalize_proc_disp_request(DispModeData *init_data)
+static void finalize_disp_data(DispModeData *disp_data)
 {
-	free_WDList(init_data->root);
-	if(init_data->fd_database >= 0) {
-		close(init_data->fd_database);
+	free_WDList(disp_data->root);
+	if(disp_data->fd_database >= 0) {
+		close(disp_data->fd_database);
 	}
 	return;
 }
@@ -389,38 +396,28 @@ static void finalize_proc_disp_request(DispModeData *init_data)
 /**
  * @brief databaseから単語データを読み込んでWordDataのリストに格納する
  * 
- * @param[in]	  fd_database  読み込み対象のdatabaseのファイルディスクリプタ
- * @param[in]	  database   読み込み対象のdatabaseのファイル名
  * @param[in,out] root         WordDataリストの先頭要素のアドレス
+ * @param[in]	  fd_database  読み込み対象のdatabaseのファイルディスクリプタ
+ * @param[in]	  database     読み込み対象のdatabaseのファイル名
  *
  * @retval RC_NORMAL_END        正常終了
  * @retval RC_ERR_DB_FORMAT     databaseファイルフォーマットエラー
  * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
  * @retval RC_ERR_SYSTEM        その他、致命的なエラー
  */
-static int load_WDList_from_database(int fd_database, char *database, WordData *root)
+static int load_WDList_from_database(WordData *root, int fd_database, char *database)
 {	
-	WordData *new_word;
-	Token token;
-	int rc = RC_NORMAL_END;
+	WordData *new_WD;
+	int rc;
 	int length;
 	int count;
-	int is_little_endian = 1;
-	char *word = NULL;
 	ssize_t size;
 	
-	is_little_endian = *(char *)&is_little_endian;
-
 	/* databaseを全て読み込み */
 	rc = get_word_length_from_database(fd_database, database, &length);
-	while(length != 0 && rc == RC_NORMAL_END) {
-		/* 単語取得 */
-		word = (char*)malloc(length);
-		if(word == NULL) {
-			fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
-			return RC_ERR_MEM_ALLOCATE;
-		}
-		rc = get_word_from_database(fd_database, database, word, length);
+	while(rc == RC_NORMAL_END && length != 0) {
+		/* 単語取得＆WD作成 */
+		rc = create_WD_from_database(fd_database, database, length, &new_WD);
 		if(rc != RC_NORMAL_END) {
 			goto end;
 		}
@@ -429,25 +426,14 @@ static int load_WDList_from_database(int fd_database, char *database, WordData *
 		if(rc != RC_NORMAL_END) {
 			goto end;
 		}
-
+		new_WD->count = count;
 		/* 取得した単語をリストに追加 */
-		token.ptr = word;
-		token.length = length;
-		new_word = create_WD(&token, count);
-		if(new_word == NULL) {
-			fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
-			rc = RC_ERR_MEM_ALLOCATE;
-			goto end;
-		}
-		add_to_WDList(new_word, root);
-		free(word);
-		word = NULL;
+		add_to_WDList(root, new_WD);
 
 		/* 単語の長さ取得 */
 		rc = get_word_length_from_database(fd_database, database, &length);
 	}
 end:
-	free(word);
 	return rc;
 }
 
@@ -455,21 +441,18 @@ end:
  * @brief WordDataリストの単語を、フォーマットに従いdatabaseに書き込む
  *
  * @param[in] fd_database  書き込み対象databaseのファイルディスクリプタ
- * @param[in] WordData     WordDataリストの先頭要素のアドレス
+ * @param[in] root         WordDataリストの先頭要素のアドレス
  *
  * @retval RC_NORMAL_END     正常終了
  * @retval RC_ERR_SYSTEM     その他、致命的なエラー
  */
-static int save_WDList_to_database(int fd_database, WordData *root)
+static int save_WDList_to_database(WordData *root, int fd_database)
 {
 	WordData *current = root->next;
 	int length;
 	int count;
-	int is_little_endian = 1;
 	ssize_t size;
 	off_t offset;
-
-	is_little_endian = *(char *)&is_little_endian;
 
 	offset = lseek(fd_database, 0, SEEK_SET);
 	if(offset == -1) {
@@ -481,9 +464,7 @@ static int save_WDList_to_database(int fd_database, WordData *root)
 		/* 文字列長さ */
 		/* \0も長さに含めるため+1 */
 		length = strlen(current->word) + 1;
-		if(is_little_endian) {
-			length = bswap_32(length);
-		}
+		length = bswap_little_endian(length);
 		size = write(fd_database, &length, sizeof(int));
 		if(size < sizeof(int)) {
 			 fprintf(stderr, MSG_ERR_SYSTEM);
@@ -498,10 +479,7 @@ static int save_WDList_to_database(int fd_database, WordData *root)
 			return RC_ERR_SYSTEM;
 		}
 		/* 出現回数 */
-		count = current->count;
-		if(is_little_endian) {
-			count = bswap_32(count);
-		}
+		count = bswap_little_endian(current->count);
 		size = write(fd_database, &count, sizeof(int));
 		if(size < sizeof(int)) {
 			fprintf(stderr, MSG_ERR_SYSTEM);
@@ -515,9 +493,9 @@ static int save_WDList_to_database(int fd_database, WordData *root)
 /**
  * @brief 入力ファイルの単語をカウントし、WordDataのリストに格納する
  *
- * @param[in]	  fd_infile   読み込み対象ファイルのファイルディスクリプタ
- * @para,[in]	  infilename  読み込み対象のファイル名
  * @param[in,out] root	      WordDataリストの先頭要素のアドレス
+ * @param[in]	  fd_infile   読み込み対象ファイルのファイルディスクリプタ
+ * @para,[in]	  infile      読み込み対象のファイル名
  *
  * @retval RC_NORMAL_END        正常終了
  * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
@@ -525,37 +503,33 @@ static int save_WDList_to_database(int fd_database, WordData *root)
  * @retval RC_ERR_MEM_ALLOCATE  メモリ確保エラー
  * @retval RC_ERR_SYSTEM        その他、致命的なエラー
  */
-static int make_WDList_from_infile(int fd_infile, char *infilename , WordData *root)
+static int make_WDList_from_infile(WordData *root, int fd_infile, char *infile)
 {
-	WordData *new_word;
-	StrSplitter str;
+	WordData *new_WD;
+	StrSplitter str_splitter;
 	Token token;
+	Token *p_token;
+	ReadChunk chunk = {0};
 	char line[INFILE_LINE_MAX] = {0};
 	int rc;
 	int skipped_len = 0;
 
-	/* 1行読み込み */
-	rc = get_line(fd_infile, infilename, line, &skipped_len);
-	while(rc != RC_READ_END) {
-		if(rc == RC_ERR_INFILE_FORMAT) {
-			return RC_ERR_INFILE_FORMAT;
+	/* infile読み込み */
+	while((rc = get_chunk(fd_infile, infile, &chunk)) != RC_READ_END) {
+		if(rc != RC_NORMAL_END) {
+			return rc;
 		}
-
 		/* 1行を単語に区切ってリストに格納 */
-		str.target = line;
-		str.offset = 0;
-		get_token(&str, &token);
-		while(token.ptr != NULL) {
-			new_word = create_WD(&token, 1);
-			if(new_word == NULL) {
+		str_splitter.target = chunk.str;
+		str_splitter.offset = 0;
+		while((p_token = get_token(&str_splitter, &token)) != NULL) {
+			new_WD = create_WD(p_token, 1);
+			if(new_WD == NULL) {
 				fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 				return RC_ERR_MEM_ALLOCATE;
 			}
-			add_to_WDList(new_word, root);
-			get_token(&str, &token);
+			add_to_WDList(root, new_WD);
 		}
-		/* 1行読み込み */
-		rc = get_line(fd_infile, infilename, line, &skipped_len);
 	}
 	return RC_NORMAL_END;
 }
@@ -571,7 +545,7 @@ static int make_WDList_from_infile(int fd_infile, char *infilename , WordData *r
  */
 static WordData *create_WD(Token *token, int count)
 {
-	WordData *new_WD = (WordData*)calloc(sizeof(WordData), 1);
+	WordData *new_WD = calloc(sizeof(WordData), 1);
 	if(new_WD == NULL) {
 		return NULL;
 	}
@@ -580,17 +554,68 @@ static WordData *create_WD(Token *token, int count)
 	if(token == NULL) {
 		goto end;
 	}
-
-	new_WD->word = (char*)malloc(token->length);
+	
+	new_WD->word = strdup(token->ptr);
 	if(new_WD->word == NULL) {
 		free(new_WD);
 		return NULL;
 	}
 
-	memcpy(new_WD->word, token->ptr, token->length);
 	new_WD->count = count;
 end:
 	return new_WD;
+}
+
+/**
+ * @brief databaseから単語を読み込み、実体を作成したnew_WDに詰めて返す
+ *
+ * @param[in]  fd_database  読み込み対象のdatabaseのファイルディスクリプタ
+ * @param[in]  database     読み込み対象のdatabaseのファイル名
+ * @param[in]  length       読み込む単語の長さ
+ * @param[out] new_WD       実態を作成するWordData構造体ポインタのアドレス
+ *
+ * @retval RC_NORMAL_END     正常終了
+ * @retval RC_ERR_DB_FORMAT  databaseファイルフォーマットエラー
+ * @retval RC_ERR_SYSTEM     その他、致命的なエラー
+ */
+static int create_WD_from_database(int fd_database, char *database, int length, WordData **new_WD)
+{
+	int rc = RC_NORMAL_END;
+	char *word = NULL;
+	ssize_t size;
+	
+	*new_WD = NULL;
+
+	/* 単語読み込み */
+	word = malloc(length);
+	if(word == NULL) {
+		fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
+		return RC_ERR_MEM_ALLOCATE;
+	}
+	size = read(fd_database, word, length);
+	if(size == -1) {
+		fprintf(stderr, MSG_ERR_SYSTEM);
+		rc = RC_ERR_SYSTEM;
+		goto end;
+	} else if(size < length) {
+		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
+		rc = RC_ERR_DB_FORMAT;
+		goto end;
+	}
+	/* new_WD作成・値のセット */
+	*new_WD = calloc(sizeof(WordData), 1);
+	if(*new_WD == NULL) {
+		fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
+		rc = RC_ERR_MEM_ALLOCATE;
+		goto end;
+	}
+	(*new_WD)->word = word;
+end:
+	if(rc != RC_NORMAL_END) {
+		free(word);
+		free(*new_WD);
+	}
+	return rc;
 }
 
 /**
@@ -641,25 +666,25 @@ static void free_WDList(WordData *root)
 /**
  * @brief WordDataリストに新しい単語を追加
  * 
- * @param[in]     new_word  追加対象のWordDataのアドレス
- * @param[in,out] root      new_word追加先のWordDataリストの先頭要素アドレス
+ * @param[in,out] root      new_WD追加先のWordDataリストの先頭要素アドレス
+ * @param[in]     new_WD    追加対象のWordDataのアドレス
  */
-static void add_to_WDList(WordData *new_word, WordData *root)
+static void add_to_WDList(WordData *root, WordData *new_WD)
 {
 	WordData *prev = root;
 	WordData *current = root->next;
 	int cmp_rslt;
 	while(current != NULL) {
-		cmp_rslt = strcmp(current->word, new_word->word);
+		cmp_rslt = strcmp(current->word, new_WD->word);
 
 		if(cmp_rslt == 0) {/* 同じ単語なので合算 */
-			current->count += new_word->count;
-			free(new_word->word);
-			free(new_word);
+			current->count += new_WD->count;
+			free(new_WD->word);
+			free(new_WD);
 			return;
 		} else if(cmp_rslt > 0) {/* prevとcurrentの間に挿入 */
-			prev->next = new_word;
-			new_word->next = current;
+			prev->next = new_WD;
+			new_WD->next = current;
 			return;
 		}
 		
@@ -667,85 +692,59 @@ static void add_to_WDList(WordData *new_word, WordData *root)
 		current = current->next;
 	}
 	/* 末尾に追加 */
-	prev->next = new_word;
+	prev->next = new_WD;
 	return;
 }
 
 /**
- * @brief 文字列から単語を取り出しアドレスと単語長をtokenに格納
+ * @brief 文字列から単語を取り出しアドレスと単語長をtokenに格納し返す
  *
- * @param[in,out] str    解析対象の文字列を表す構造体
- *                       文字列の先頭からoffsetだけ後ろから処理を開始する
- * @param[in,out] token  単語を詰める構造体
- *                       トークンがない場合,ptrにNULLを入れて返す
+ * @param[in,out] str_splitter    解析対象の文字列を表す構造体
+ *                                文字列の先頭からoffsetだけ後ろから処理を開始する
+ * @param[in]    token		  戻り値として返すためのTokenポインタ
+ * 
+ * @return 単語がある場合：単語を格納したTokenのポインタ
+ *         単語が無い場合：NULL
  *                         
  * @note 1.引数strはこの関数内で変更される
  *       2.単語の定義：英数字および「'」が連続している文字列
  */
-static void get_token(StrSplitter *str, Token *token)
+static Token *get_token(StrSplitter *str_splitter, Token *token)
 {
 	char *head_ptr;
 	int length = 0;
 	
-	head_ptr = str->target + str->offset;
+	head_ptr = str_splitter->target + str_splitter->offset;
 
 	if(*head_ptr == '\0') {
-		token->ptr = NULL;
-		token->length = 0;
-		return;
+		return NULL;
 	}
 
 	token->ptr = head_ptr;
 	while(isalnum((int)*head_ptr) || *head_ptr == '\'') {
 		head_ptr++;
 		length++;
-		str->offset++;
+		str_splitter->offset++;
 	}
 
 	/* \0も含めるため1文字足す */
 	token->length = length + 1;
 	if(*head_ptr == '\0') {
-		return;
+		return token;
 	}
 	*head_ptr = '\0';
 	/* 次の単語の始まりを見つけてoffsetを求める */
 	head_ptr++;
-	str->offset++;
+	str_splitter->offset++;
 	while(*head_ptr != '\0') {
 		if(isalnum((int)*head_ptr) || *head_ptr == '\'') {
-			return;
+			break;
 		}
 		*head_ptr = '\0';
 		head_ptr++;
-		str->offset++;
+		str_splitter->offset++;
 	}
-	return;
-}
-
-/**
- * @brief databaseから単語を読み取りwordに格納D
- * 
- * @param[in]  fd_database  読み込み対象databaseのファイルディスクリプタ
- * @param[in]  database     読み込み対象databaseのファイル名
- * @param[out] word	    読み込み文字列
- * @param[in]  length       読み込み文字列の長さ
- *
- * @retval RC_NORMAL_END     正常終了
- * @retval RC_ERR_DB_FORMAT  databaseファイルフォーマットエラー
- * @retval RC_ERR_SYSTEM     その他、致命的なエラー
- */
-static int get_word_from_database(int fd_database, char *database, char *word, int length)
-{
-	ssize_t size;
-	size = read(fd_database, word, length);
-	if(size == -1) {
-		fprintf(stderr, MSG_ERR_SYSTEM);
-		return RC_ERR_SYSTEM;
-	} else if(size < length) {
-		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
-		return RC_ERR_DB_FORMAT;
-	}
-	return RC_NORMAL_END;
+	return token;
 }
 
 /**
@@ -763,9 +762,6 @@ static int get_word_from_database(int fd_database, char *database, char *word, i
 static int get_word_length_from_database(int fd_database, char *database, int *length)
 {
 	ssize_t size;
-	int is_little_endian = 1;
-
-	is_little_endian = *(char *)&is_little_endian;
 
 	size = read(fd_database, length, sizeof(int));
 	if(size == -1) {
@@ -778,9 +774,8 @@ static int get_word_length_from_database(int fd_database, char *database, int *l
 		*length = 0;
 	}
 
-	if(is_little_endian) {
-		*length = bswap_32(*length);
-	}
+	*length = bswap_little_endian(*length);
+
 	if(*length < 0) {
 		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
 		return RC_ERR_DB_FORMAT;
@@ -802,9 +797,6 @@ static int get_word_length_from_database(int fd_database, char *database, int *l
 static int get_word_count_from_database(int fd_database, char *database, int *count)
 {
 	ssize_t size;
-	int is_little_endian = 1;
-
-	is_little_endian = *(char *)&is_little_endian;
 
 	size = read(fd_database, count, sizeof(int));
 	if(size == -1) {
@@ -815,9 +807,7 @@ static int get_word_count_from_database(int fd_database, char *database, int *co
 		return RC_ERR_DB_FORMAT;
 	}
 	
-	if(is_little_endian) {
-		*count = bswap_32(*count);
-	}
+	*count = bswap_little_endian(*count);
 
 	if(*count < 0) {
 		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
@@ -829,38 +819,43 @@ static int get_word_count_from_database(int fd_database, char *database, int *co
 /**
  * @brief infileから1行読み込みlineに格納
  *
- * @param[in]  fd_infile   読み込み対象ファイルのファイルディスクリプタ
- * @param[in]  infilename  読み込み対象ファイルのファイル名
- * @param[out] line        読み込んだ1行を格納する
- * @param[in,out] skipped_len  前回読み込み時にskipした文字列の長さを受け取り、
- * 			       今回skipした文字列の長さを返す
+ * @param[in]     fd_infile   読み込み対象ファイルのファイルディスクリプタ
+ * @param[in]     infile      読み込み対象ファイルのファイル名
+ * @param[in,out] read_chunk  読み込んだ文字列を格納するReadChunkのポインタ
  *
  * @retval RC_NORMAL_END         正常終了
  * @retval RC_ERR_INFILE_FORMAT  入力ファイルフォーマットエラー
+ * @retval RC_ERR_SYSTEM         その他、致命的なエラー
  * @retval RC_READ_END           読み込み終了
+ *
+ * @note 読み込んだINFILE_LINE_MAXバイトの文字列の内、最後の改行の場所に\0を入れて
+ *       以降の文字列を、今後の処理でスキップする
+ *	 今回スキップしたデータは次回読み込み前に先頭に持ってくる
  */
-static int get_line(int fd_infile, char *infilename, char *line, int *skipped_len)
+static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 {
 	int last_newline_pos;
 	ssize_t size;
-	
-	last_newline_pos = INFILE_LINE_MAX - *skipped_len - 1;
+	last_newline_pos = INFILE_LINE_MAX - chunk->skipped_len - 1;
 	/* スキップした文字列を、先頭に持ってきて、空いた分だけread */
-	memmove(line, line + last_newline_pos + 1, *skipped_len);
-	memset(line + *skipped_len, 0, INFILE_LINE_MAX - *skipped_len);
-	size = read(fd_infile, line + *skipped_len, INFILE_LINE_MAX - *skipped_len);
-	if(size == 0) {
+	memmove(chunk->str, chunk->str + last_newline_pos + 1, chunk->skipped_len);
+	memset(chunk->str + chunk->skipped_len, 0, INFILE_LINE_MAX - chunk->skipped_len);
+	size = read(fd_infile, chunk->str + chunk->skipped_len, INFILE_LINE_MAX - chunk->skipped_len);
+	if (size == -1) {
+		fprintf(stderr, MSG_ERR_SYSTEM);
+		return RC_ERR_SYSTEM;
+	} else if(size == 0) {
 		return RC_READ_END;
 	}
 	/* line中の最後の改行以降の文字列は、今回は処理をスキップ */
-	last_newline_pos = search_last_newline(line, (int)size + *skipped_len);
+	last_newline_pos = search_last_newline(chunk->str, (int)size + chunk->skipped_len);
 	/* 1行の制限越え */
 	if(last_newline_pos == -1) {
-		fprintf(stderr, MSG_ERR_INFILE_FORMAT, infilename);
+		fprintf(stderr, MSG_ERR_INFILE_FORMAT, infile);
 		return RC_ERR_INFILE_FORMAT;
 	}
-	*skipped_len = INFILE_LINE_MAX - last_newline_pos - 1;
-	line[last_newline_pos] = '\0';
+	chunk->skipped_len = INFILE_LINE_MAX - last_newline_pos - 1;
+	chunk->str[last_newline_pos] = '\0';
 
 	return RC_NORMAL_END;
 }
@@ -883,5 +878,21 @@ static int search_last_newline(char *str, int length)
 		}
 	}
 	return -1;
+}
+
+/**
+ * @brief システムがlittle endianならdataをバイトスワップする
+ *
+ * @return big endian   :dataをそのまま返す
+ *         little endian:バイトスワップをしたdataを返す
+ */
+static int bswap_little_endian(int data)
+{
+	static int is_little_endian = -1;
+	int x = 1;
+	if(is_little_endian == -1) {
+		is_little_endian = *(char *)&x;
+	}
+	return is_little_endian ? bswap_32(data) : data;
 }
 
