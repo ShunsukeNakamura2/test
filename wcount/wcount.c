@@ -63,27 +63,27 @@ typedef struct Token_t {
 	int length;	/* 単語の長さ(\0を含む) */
 } Token;
 
-/* 区切り文字で区切る文字列 */
-typedef struct StrSplitter_t {
-	char *target;	/* 区切り処理を行う対象文字列 */
-	int offset;	/* 区切り処理を開始する地点 */
-} StrSplitter;
-
 /* infileから読み込んだデータ */
 typedef struct ReadChunk_t {
 	char str[INFILE_LINE_MAX];/* infileからINFILE_LINE_MAXバイト読んだ文字列 */
 	int skipped_len;	  /* 前回の読み込み時にskipした文字列の長さ */
 } ReadChunk;
 
+/* 区切り文字で区切る文字列 */
+typedef struct StrSplitter_t {
+	ReadChunk chunk;/* 区切り処理を行う対象文字列 */
+	int offset;	/* 区切り処理を開始する地点 */
+} StrSplitter;
+
 static int analyze_args(int argc, char *argv[], CmdParams *params);
 /* 入力モード時処理 */
 static int proc_input_request(CmdParams params);
-static int init_input_data(InputModeData *init_data, CmdParams params);
-static void finalize_input_data(InputModeData *init_data);
+static int init_input_data(InputModeData *input_data, CmdParams params);
+static void finalize_input_data(InputModeData *input_data);
 /* DB表示モード時処理 */
 static int proc_disp_request(CmdParams params);
-static int init_disp_data(DispModeData *init_data, CmdParams params);
-static void finalize_disp_data(DispModeData *init_data);
+static int init_disp_data(DispModeData *disp_data, CmdParams params);
+static void finalize_disp_data(DispModeData *disp_data);
 /* WordDataリスト操作関連 */
 static int load_WDList_from_database(WordData *root, int fd_database, char *database);
 static int save_WDList_to_database(WordData *root, int fd_database);
@@ -95,10 +95,10 @@ static void disp_WDList(WordData *root);
 static void free_WDList(WordData *root);
 static void add_to_WDList(WordData *root, WordData *new_WD);
 /* utility */
-static Token *get_token(StrSplitter *str_splitter, Token *token);
+static int get_token(StrSplitter *str_splitter, Token *token);
 static int get_word_length_from_database(int fd_database, char *database, int *length);
 static int get_word_count_from_database(int fd_database, char *database, int *count);
-static int get_chunk(int fd_infile, char *infile, ReadChunk *read_chunk);
+static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk);
 static int search_last_newline(char *str, int length);
 static int bswap_little_endian(int data);
 
@@ -305,9 +305,11 @@ static void finalize_input_data(InputModeData *input_data)
 	free_WDList(input_data->root);
 	if(input_data->fd_infile >= 0) {
 		close(input_data->fd_infile);
+		input_data->fd_infile = -1;
 	}
 	if(input_data->fd_database >= 0) {
 		close(input_data->fd_database);
+		input_data->fd_database = -1;
 	}
 	return;
 }
@@ -350,7 +352,7 @@ end:
 /**
  * @brief proc_disp_request()で使用するfdのopen、構造体リストの作成を行う
  *
- * @param[in,out] init_data  関数内で使用する初期化が必要な変数をまとめた構造体
+ * @param[in,out] disp_data  関数内で使用する初期化が必要な変数をまとめた構造体
  * @param[in]     params     コマンドライン引数の解析済みパラメータ
  *
  * @retval RC_NORMAL_END        正常終了
@@ -382,13 +384,14 @@ static int init_disp_data(DispModeData *disp_data, CmdParams params)
 /**
  * @brief proc_input_request()で使用したfdのclose、構造体リストの解放を行う
  *
- * @param[in] init_data  関数内で使用した、終了処理が必要な変数をまとめた構造体
+ * @param[in] disp_data  関数内で使用した、終了処理が必要な変数をまとめた構造体
  */
 static void finalize_disp_data(DispModeData *disp_data)
 {
 	free_WDList(disp_data->root);
 	if(disp_data->fd_database >= 0) {
 		close(disp_data->fd_database);
+		disp_data->fd_database = -1;
 	}
 	return;
 }
@@ -440,8 +443,8 @@ end:
 /**
  * @brief WordDataリストの単語を、フォーマットに従いdatabaseに書き込む
  *
- * @param[in] fd_database  書き込み対象databaseのファイルディスクリプタ
  * @param[in] root         WordDataリストの先頭要素のアドレス
+ * @param[in] fd_database  書き込み対象databaseのファイルディスクリプタ
  *
  * @retval RC_NORMAL_END     正常終了
  * @retval RC_ERR_SYSTEM     その他、致命的なエラー
@@ -449,8 +452,8 @@ end:
 static int save_WDList_to_database(WordData *root, int fd_database)
 {
 	WordData *current = root->next;
-	int length;
-	int count;
+	int length, length_be;
+	int count, count_be;
 	ssize_t size;
 	off_t offset;
 
@@ -464,23 +467,22 @@ static int save_WDList_to_database(WordData *root, int fd_database)
 		/* 文字列長さ */
 		/* \0も長さに含めるため+1 */
 		length = strlen(current->word) + 1;
-		length = bswap_little_endian(length);
-		size = write(fd_database, &length, sizeof(int));
+		length_be = bswap_little_endian(length);
+		size = write(fd_database, &length_be, sizeof(int));
 		if(size < sizeof(int)) {
 			 fprintf(stderr, MSG_ERR_SYSTEM);
 			 return RC_ERR_SYSTEM;
 		}
 		/* 文字列 */
-		/* \0も書き込むため+1 */
-		length = strlen(current->word) + 1;
 		size = write(fd_database, current->word, length);
 		if(size < length) {
 			fprintf(stderr, MSG_ERR_SYSTEM);
 			return RC_ERR_SYSTEM;
 		}
 		/* 出現回数 */
-		count = bswap_little_endian(current->count);
-		size = write(fd_database, &count, sizeof(int));
+		count = current->count;
+		count_be = bswap_little_endian(count);
+		size = write(fd_database, &count_be, sizeof(int));
 		if(size < sizeof(int)) {
 			fprintf(stderr, MSG_ERR_SYSTEM);
 			return RC_ERR_SYSTEM;
@@ -495,7 +497,7 @@ static int save_WDList_to_database(WordData *root, int fd_database)
  *
  * @param[in,out] root	      WordDataリストの先頭要素のアドレス
  * @param[in]	  fd_infile   読み込み対象ファイルのファイルディスクリプタ
- * @para,[in]	  infile      読み込み対象のファイル名
+ * @param[in]	  infile      読み込み対象のファイル名
  *
  * @retval RC_NORMAL_END        正常終了
  * @retval RC_ERR_FILE_OPEN     ファイルオープンエラー
@@ -506,32 +508,28 @@ static int save_WDList_to_database(WordData *root, int fd_database)
 static int make_WDList_from_infile(WordData *root, int fd_infile, char *infile)
 {
 	WordData *new_WD;
-	StrSplitter str_splitter;
+	StrSplitter str_splitter = {0};
 	Token token;
-	Token *p_token;
-	ReadChunk chunk = {0};
-	char line[INFILE_LINE_MAX] = {0};
 	int rc;
-	int skipped_len = 0;
+	int rc_token;
 
 	/* infile読み込み */
-	while((rc = get_chunk(fd_infile, infile, &chunk)) != RC_READ_END) {
-		if(rc != RC_NORMAL_END) {
-			return rc;
-		}
-		/* 1行を単語に区切ってリストに格納 */
-		str_splitter.target = chunk.str;
+	while((rc = get_chunk(fd_infile, infile, &str_splitter.chunk)) == RC_NORMAL_END || rc == RC_READ_END) {
+		/* chunkを単語に区切ってリストに格納 */
 		str_splitter.offset = 0;
-		while((p_token = get_token(&str_splitter, &token)) != NULL) {
-			new_WD = create_WD(p_token, 1);
+		while((rc_token = get_token(&str_splitter, &token)) == 0) {
+			new_WD = create_WD(&token, 1);
 			if(new_WD == NULL) {
 				fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 				return RC_ERR_MEM_ALLOCATE;
 			}
 			add_to_WDList(root, new_WD);
 		}
+		if(rc == RC_READ_END) {
+			return RC_NORMAL_END;
+		}
 	}
-	return RC_NORMAL_END;
+	return rc;
 }
 
 /**
@@ -545,16 +543,13 @@ static int make_WDList_from_infile(WordData *root, int fd_infile, char *infile)
  */
 static WordData *create_WD(Token *token, int count)
 {
-	WordData *new_WD = calloc(sizeof(WordData), 1);
+	WordData *new_WD;
+
+	new_WD = calloc(1, sizeof(WordData));
 	if(new_WD == NULL) {
 		return NULL;
 	}
 
-	/* rootの場合はwordへのメモリ割り当てを行わない */
-	if(token == NULL) {
-		goto end;
-	}
-	
 	new_WD->word = strdup(token->ptr);
 	if(new_WD->word == NULL) {
 		free(new_WD);
@@ -572,7 +567,7 @@ end:
  * @param[in]  fd_database  読み込み対象のdatabaseのファイルディスクリプタ
  * @param[in]  database     読み込み対象のdatabaseのファイル名
  * @param[in]  length       読み込む単語の長さ
- * @param[out] new_WD       実態を作成するWordData構造体ポインタのアドレス
+ * @param[out] new_WD       実体を作成するWordData構造体ポインタのアドレス
  *
  * @retval RC_NORMAL_END     正常終了
  * @retval RC_ERR_DB_FORMAT  databaseファイルフォーマットエラー
@@ -603,7 +598,7 @@ static int create_WD_from_database(int fd_database, char *database, int length, 
 		goto end;
 	}
 	/* new_WD作成・値のセット */
-	*new_WD = calloc(sizeof(WordData), 1);
+	*new_WD = calloc(1, sizeof(WordData));
 	if(*new_WD == NULL) {
 		fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 		rc = RC_ERR_MEM_ALLOCATE;
@@ -613,7 +608,6 @@ static int create_WD_from_database(int fd_database, char *database, int length, 
 end:
 	if(rc != RC_NORMAL_END) {
 		free(word);
-		free(*new_WD);
 	}
 	return rc;
 }
@@ -626,7 +620,10 @@ end:
  */
 static WordData *init_WDList()
 {
-	return create_WD(NULL, 0);
+	WordData *new_WD;
+
+	new_WD = calloc(1, sizeof(WordData));
+	return new_WD;
 }
 
 /**
@@ -637,6 +634,7 @@ static WordData *init_WDList()
 static void disp_WDList(WordData *root)
 {
 	WordData *current = root->next;
+
 	while(current != NULL) {
 		printf("%-20s%d\n", current->word, current->count);
 		current = current->next;
@@ -674,6 +672,7 @@ static void add_to_WDList(WordData *root, WordData *new_WD)
 	WordData *prev = root;
 	WordData *current = root->next;
 	int cmp_rslt;
+
 	while(current != NULL) {
 		cmp_rslt = strcmp(current->word, new_WD->word);
 
@@ -701,50 +700,53 @@ static void add_to_WDList(WordData *root, WordData *new_WD)
  *
  * @param[in,out] str_splitter    解析対象の文字列を表す構造体
  *                                文字列の先頭からoffsetだけ後ろから処理を開始する
- * @param[in]    token		  戻り値として返すためのTokenポインタ
+ * @param[out]    token		  取り出した単語を詰めるToken構造体のポインタ
  * 
- * @return 単語がある場合：単語を格納したTokenのポインタ
- *         単語が無い場合：NULL
+ * @retval 0   成功
+ * @retval -1  単語が無い
  *                         
- * @note 1.引数strはこの関数内で変更される
+ * @note 1.渡された文字列 str_splitter->chunk.strはこの関数内で変更される
  *       2.単語の定義：英数字および「'」が連続している文字列
  */
-static Token *get_token(StrSplitter *str_splitter, Token *token)
+static int get_token(StrSplitter *str_splitter, Token *token)
 {
-	char *head_ptr;
-	int length = 0;
-	
-	head_ptr = str_splitter->target + str_splitter->offset;
+	char *start_ptr;   /* 探索開始位置 */
+	char *current_ptr; /* 現在見ている位置 */
+	int i = 0;
 
-	if(*head_ptr == '\0') {
-		return NULL;
-	}
-
-	token->ptr = head_ptr;
-	while(isalnum((int)*head_ptr) || *head_ptr == '\'') {
-		head_ptr++;
-		length++;
-		str_splitter->offset++;
-	}
-
-	/* \0も含めるため1文字足す */
-	token->length = length + 1;
-	if(*head_ptr == '\0') {
-		return token;
-	}
-	*head_ptr = '\0';
-	/* 次の単語の始まりを見つけてoffsetを求める */
-	head_ptr++;
-	str_splitter->offset++;
-	while(*head_ptr != '\0') {
-		if(isalnum((int)*head_ptr) || *head_ptr == '\'') {
+	start_ptr = str_splitter->chunk.str + str_splitter->offset;
+	current_ptr = start_ptr;
+	/* 単語を見つける */
+	while(*current_ptr != '\0') {	
+		if(isalnum((int)*current_ptr) || *current_ptr == '\'') {
 			break;
 		}
-		*head_ptr = '\0';
-		head_ptr++;
-		str_splitter->offset++;
+		current_ptr++;
 	}
-	return token;
+
+	if(*current_ptr == '\0') {
+		return -1;
+	}
+
+	token->ptr = current_ptr;
+	while(isalnum((int)*current_ptr) || *current_ptr == '\'') {
+		/* ファイル末尾の終端文字がないINFILE_LINE_MAXバイトの単語 */
+		if(++i == INFILE_LINE_MAX) {
+			break;
+		}
+		current_ptr++;
+	}
+	/* \0も含めるため1文字足す */
+	token->length = current_ptr - token->ptr + 1;
+	str_splitter->offset += current_ptr - start_ptr;
+	/* 最後まで見た */
+	if(*current_ptr == '\0') {
+		return 0;
+	}
+	/* 続きがあるため次回はcurrent_ptr+1から見始める */
+	*current_ptr = '\0';
+	str_splitter->offset++;
+	return 0;
 }
 
 /**
@@ -762,8 +764,9 @@ static Token *get_token(StrSplitter *str_splitter, Token *token)
 static int get_word_length_from_database(int fd_database, char *database, int *length)
 {
 	ssize_t size;
+	int length_be;
 
-	size = read(fd_database, length, sizeof(int));
+	size = read(fd_database, &length_be, sizeof(int));
 	if(size == -1) {
 		fprintf(stderr, MSG_ERR_SYSTEM);
 		return RC_ERR_SYSTEM;
@@ -774,7 +777,7 @@ static int get_word_length_from_database(int fd_database, char *database, int *l
 		*length = 0;
 	}
 
-	*length = bswap_little_endian(*length);
+	*length = bswap_little_endian(length_be);
 
 	if(*length < 0) {
 		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
@@ -797,8 +800,9 @@ static int get_word_length_from_database(int fd_database, char *database, int *l
 static int get_word_count_from_database(int fd_database, char *database, int *count)
 {
 	ssize_t size;
+	int count_be;
 
-	size = read(fd_database, count, sizeof(int));
+	size = read(fd_database, &count_be, sizeof(int));
 	if(size == -1) {
 		fprintf(stderr, MSG_ERR_SYSTEM);
 		return RC_ERR_SYSTEM;
@@ -807,7 +811,7 @@ static int get_word_count_from_database(int fd_database, char *database, int *co
 		return RC_ERR_DB_FORMAT;
 	}
 	
-	*count = bswap_little_endian(*count);
+	*count = bswap_little_endian(count_be);
 
 	if(*count < 0) {
 		fprintf(stderr, MSG_ERR_DB_FORMAT, database);
@@ -821,7 +825,7 @@ static int get_word_count_from_database(int fd_database, char *database, int *co
  *
  * @param[in]     fd_infile   読み込み対象ファイルのファイルディスクリプタ
  * @param[in]     infile      読み込み対象ファイルのファイル名
- * @param[in,out] read_chunk  読み込んだ文字列を格納するReadChunkのポインタ
+ * @param[in,out] chunk       読み込んだ文字列を格納するReadChunkのポインタ
  *
  * @retval RC_NORMAL_END         正常終了
  * @retval RC_ERR_INFILE_FORMAT  入力ファイルフォーマットエラー
@@ -836,10 +840,14 @@ static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 {
 	int last_newline_pos;
 	ssize_t size;
+	ssize_t eof_chk;
+	char c;
+
 	last_newline_pos = INFILE_LINE_MAX - chunk->skipped_len - 1;
 	/* スキップした文字列を、先頭に持ってきて、空いた分だけread */
 	memmove(chunk->str, chunk->str + last_newline_pos + 1, chunk->skipped_len);
 	memset(chunk->str + chunk->skipped_len, 0, INFILE_LINE_MAX - chunk->skipped_len);
+
 	size = read(fd_infile, chunk->str + chunk->skipped_len, INFILE_LINE_MAX - chunk->skipped_len);
 	if (size == -1) {
 		fprintf(stderr, MSG_ERR_SYSTEM);
@@ -847,12 +855,22 @@ static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 	} else if(size == 0) {
 		return RC_READ_END;
 	}
+
 	/* line中の最後の改行以降の文字列は、今回は処理をスキップ */
 	last_newline_pos = search_last_newline(chunk->str, (int)size + chunk->skipped_len);
-	/* 1行の制限越え */
+
 	if(last_newline_pos == -1) {
-		fprintf(stderr, MSG_ERR_INFILE_FORMAT, infile);
-		return RC_ERR_INFILE_FORMAT;
+		eof_chk = read(fd_infile, &c, 1);
+		if(eof_chk == -1) {
+			fprintf(stderr, MSG_ERR_SYSTEM);
+			return RC_ERR_SYSTEM;
+		} else if(eof_chk == 1) {
+			/* 1行の制限越え */
+			fprintf(stderr, MSG_ERR_INFILE_FORMAT, infile);
+			return RC_ERR_INFILE_FORMAT;
+		}
+		/* ファイルを読み終わった(最後に改行が入っていない) */
+		return RC_READ_END;
 	}
 	chunk->skipped_len = INFILE_LINE_MAX - last_newline_pos - 1;
 	chunk->str[last_newline_pos] = '\0';
@@ -872,6 +890,7 @@ static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 static int search_last_newline(char *str, int length)
 {
 	int i;
+
 	for(i = length - 1; i >= 0; i--) {
 		if(str[i] == '\n') {
 			return i;
@@ -883,6 +902,8 @@ static int search_last_newline(char *str, int length)
 /**
  * @brief システムがlittle endianならdataをバイトスワップする
  *
+ * @param[in] data  バイトスワップ対象のデータ
+ * 
  * @return big endian   :dataをそのまま返す
  *         little endian:バイトスワップをしたdataを返す
  */
@@ -890,6 +911,7 @@ static int bswap_little_endian(int data)
 {
 	static int is_little_endian = -1;
 	int x = 1;
+
 	if(is_little_endian == -1) {
 		is_little_endian = *(char *)&x;
 	}
