@@ -65,7 +65,7 @@ typedef struct Token_t {
 
 /* infileから読み込んだデータ */
 typedef struct ReadChunk_t {
-	char str[INFILE_LINE_MAX];/* infileからINFILE_LINE_MAXバイト読んだ文字列 */
+	char str[INFILE_LINE_MAX + 1];/* infileからINFILE_LINE_MAXバイト読んだ文字列 */
 	int skipped_len;	  /* 前回の読み込み時にskipした文字列の長さ */
 } ReadChunk;
 
@@ -95,7 +95,7 @@ static void disp_WDList(WordData *root);
 static void free_WDList(WordData *root);
 static void add_to_WDList(WordData *root, WordData *new_WD);
 /* utility */
-static int get_token(StrSplitter *str_splitter, Token *token);
+static Token *get_token(StrSplitter *str_splitter, Token *token);
 static int get_word_length_from_database(int fd_database, char *database, int *length);
 static int get_word_count_from_database(int fd_database, char *database, int *count);
 static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk);
@@ -510,24 +510,25 @@ static int make_WDList_from_infile(WordData *root, int fd_infile, char *infile)
 	WordData *new_WD;
 	StrSplitter str_splitter = {0};
 	Token token;
+	Token *p_token;
 	int rc;
-	int rc_token;
 
 	/* infile読み込み */
-	while((rc = get_chunk(fd_infile, infile, &str_splitter.chunk)) == RC_NORMAL_END || rc == RC_READ_END) {
+	while((rc = get_chunk(fd_infile, infile, &str_splitter.chunk)) == RC_NORMAL_END) {
 		/* chunkを単語に区切ってリストに格納 */
 		str_splitter.offset = 0;
-		while((rc_token = get_token(&str_splitter, &token)) == 0) {
-			new_WD = create_WD(&token, 1);
+		p_token = &token;
+		while((p_token = get_token(&str_splitter, p_token)) != NULL) {
+			new_WD = create_WD(p_token, 1);
 			if(new_WD == NULL) {
 				fprintf(stderr, MSG_ERR_MEM_ALLOCATE);
 				return RC_ERR_MEM_ALLOCATE;
 			}
 			add_to_WDList(root, new_WD);
 		}
-		if(rc == RC_READ_END) {
-			return RC_NORMAL_END;
-		}
+	}
+	if(rc == RC_READ_END) {
+		rc = RC_NORMAL_END;
 	}
 	return rc;
 }
@@ -645,7 +646,7 @@ static void disp_WDList(WordData *root)
 /**
  * @brief WordDataリスト用に確保したメモリを解放
  *
- * @param[in]   対象のリストの先頭要素のアドレス
+ * @param[in] root  対象のリストの先頭要素のアドレス
  */
 static void free_WDList(WordData *root)
 {
@@ -708,15 +709,11 @@ static void add_to_WDList(WordData *root, WordData *new_WD)
  * @note 1.渡された文字列 str_splitter->chunk.strはこの関数内で変更される
  *       2.単語の定義：英数字および「'」が連続している文字列
  */
-static int get_token(StrSplitter *str_splitter, Token *token)
+static Token *get_token(StrSplitter *str_splitter, Token *token)
 {
 	char *start_ptr;   /* 探索開始位置 */
 	char *current_ptr; /* 現在見ている位置 */
-	int i = 0;
 
-	if(str_splitter->offset == INFILE_LINE_MAX) {
-		return -1;
-	}
 	start_ptr = str_splitter->chunk.str + str_splitter->offset;
 	current_ptr = start_ptr;
 	/* 単語を見つける */
@@ -728,28 +725,23 @@ static int get_token(StrSplitter *str_splitter, Token *token)
 	}
 
 	if(*current_ptr == '\0') {
-		return -1;
+		return NULL;
 	}
 
 	token->ptr = current_ptr;
 	while(isalnum((int)*current_ptr) || *current_ptr == '\'') {
-		/* ファイル末尾の終端文字がないINFILE_LINE_MAXバイトの単語 */
-		if(++i == INFILE_LINE_MAX) {
-			break;
-		}
 		current_ptr++;
 	}
-	/* \0も含めるため1文字足す */
 	token->length = current_ptr - token->ptr + 1;
-	str_splitter->offset += current_ptr - start_ptr;
+	str_splitter->offset = current_ptr - str_splitter->chunk.str;
 	/* 最後まで見た */
 	if(*current_ptr == '\0') {
-		return 0;
+		return token;
 	}
 	/* 続きがあるため次回はcurrent_ptr+1から見始める */
 	*current_ptr = '\0';
 	str_splitter->offset++;
-	return 0;
+	return token;
 }
 
 /**
@@ -856,7 +848,14 @@ static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 		fprintf(stderr, MSG_ERR_SYSTEM);
 		return RC_ERR_SYSTEM;
 	} else if(size == 0) {
-		return RC_READ_END;
+		/* 読み残しチェック */
+		if(*chunk->str == '\0') {
+			/* なし */
+			return RC_READ_END;
+		}
+		/* あり */
+		chunk->skipped_len = INFILE_LINE_MAX - chunk->skipped_len;
+		return RC_NORMAL_END;
 	}
 
 	/* line中の最後の改行以降の文字列は、今回は処理をスキップ */
@@ -873,7 +872,8 @@ static int get_chunk(int fd_infile, char *infile, ReadChunk *chunk)
 			return RC_ERR_INFILE_FORMAT;
 		}
 		/* ファイルを読み終わった(最後に改行が入っていない) */
-		return RC_READ_END;
+		chunk->skipped_len = 0;
+		return RC_NORMAL_END;
 	}
 	chunk->skipped_len = INFILE_LINE_MAX - last_newline_pos - 1;
 	chunk->str[last_newline_pos] = '\0';
