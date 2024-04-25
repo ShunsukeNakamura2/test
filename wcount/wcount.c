@@ -701,10 +701,10 @@ static void add_to_WDList(WordData *root, WordData *new_WD)
  *
  * @param[in,out] str_splitter    解析対象の文字列を表す構造体
  *                                文字列の先頭からoffsetだけ後ろから処理を開始する
- * @param[out]    token		  取り出した単語を詰めるToken構造体のポインタ
+ * @param[in]     token		  取り出した単語を詰めるToken構造体のポインタ
  * 
- * @retval 0   成功
- * @retval -1  単語が無い
+ * @return 成功      ：引数で渡されたtokenに単語を詰めたもの
+ *         単語が無い：NULL
  *                         
  * @note 1.渡された文字列 str_splitter->chunk.strはこの関数内で変更される
  *       2.単語の定義：英数字および「'」が連続している文字列
