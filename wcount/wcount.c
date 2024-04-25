@@ -557,7 +557,7 @@ static WordData *create_WD(Token *token, int count)
 	}
 
 	new_WD->count = count;
-end:
+
 	return new_WD;
 }
 
@@ -714,6 +714,9 @@ static int get_token(StrSplitter *str_splitter, Token *token)
 	char *current_ptr; /* 現在見ている位置 */
 	int i = 0;
 
+	if(str_splitter->offset == INFILE_LINE_MAX) {
+		return -1;
+	}
 	start_ptr = str_splitter->chunk.str + str_splitter->offset;
 	current_ptr = start_ptr;
 	/* 単語を見つける */
